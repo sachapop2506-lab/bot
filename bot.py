@@ -16,6 +16,9 @@ bot = commands.Bot(command_prefix="!", intents=intents)
 
 @bot.event
 async def on_ready():
+    import urllib.request
+ip = urllib.request.urlopen("https://ifconfig.me").read().decode()
+print(f"IP du serveur : {ip}")
     await bot.load_extension("giveaway")
     await bot.load_extension("ticket")
     await bot.load_extension("moderation")

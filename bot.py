@@ -1,4 +1,4 @@
-import os
+mport os
 import discord
 from discord.ext import commands
 from dotenv import load_dotenv
@@ -8,17 +8,14 @@ load_dotenv()
 TOKEN = os.getenv("DISCORD_BOT_TOKEN")
 
 intents = discord.Intents.default()
-intents.message_content = True  # Requires "Message Content Intent" enabled in Discord Developer Portal
-intents.members = True  # Requires "Server Members Intent" enabled in Discord Developer Portal
+intents.message_content = True
+intents.members = True
 
 bot = commands.Bot(command_prefix="!", intents=intents)
 
 
 @bot.event
 async def on_ready():
-    import urllib.request
-ip = urllib.request.urlopen("https://ifconfig.me").read().decode()
-print(f"IP du serveur : {ip}")
     await bot.load_extension("giveaway")
     await bot.load_extension("ticket")
     await bot.load_extension("moderation")
@@ -26,6 +23,7 @@ print(f"IP du serveur : {ip}")
     await bot.load_extension("invites")
     await bot.load_extension("levels")
     await bot.load_extension("logs")
+    await bot.load_extension("brawlstars")
     await bot.tree.sync()
     print(f"Logged in as {bot.user} (ID: {bot.user.id})")
     print("Slash commands synced.")
@@ -97,13 +95,6 @@ async def on_command_error(ctx, error):
         await ctx.send("❌ Invalid argument provided.")
     else:
         await ctx.send(f"❌ An error occurred: {error}")
-
-
-if __name__ == "__main__":
-    if not TOKEN:
-        raise ValueError("DISCORD_BOT_TOKEN environment variable is not set.")
-    bot.run(TOKEN)
-
 
 
 if __name__ == "__main__":

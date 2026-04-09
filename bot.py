@@ -21,6 +21,8 @@ async def on_ready():
     await bot.load_extension("moderation")
     await bot.load_extension("welcome")
     await bot.load_extension("invites")
+    await bot.load_extension("levels")
+    await bot.load_extension("logs")
     await bot.tree.sync()
     print(f"Logged in as {bot.user} (ID: {bot.user.id})")
     print("Slash commands synced.")
@@ -71,6 +73,14 @@ async def clear(ctx, amount: int = 5):
     await ctx.channel.purge(limit=amount + 1)
     msg = await ctx.send(f"🧹 Cleared {amount} messages.")
     await msg.delete(delay=3)
+
+
+@bot.command(name="sync")
+@commands.has_permissions(administrator=True)
+async def sync(ctx):
+    bot.tree.copy_global_to(guild=ctx.guild)
+    synced = await bot.tree.sync(guild=ctx.guild)
+    await ctx.send(f"✅ {len(synced)} commandes slash synchronisées sur ce serveur !")
 
 
 @bot.event

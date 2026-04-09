@@ -78,9 +78,10 @@ async def clear(ctx, amount: int = 5):
 @bot.command(name="sync")
 @commands.has_permissions(administrator=True)
 async def sync(ctx):
-    bot.tree.copy_global_to(guild=ctx.guild)
-    synced = await bot.tree.sync(guild=ctx.guild)
-    await ctx.send(f"✅ {len(synced)} commandes slash synchronisées sur ce serveur !")
+    bot.tree.clear_commands(guild=ctx.guild)
+    await bot.tree.sync(guild=ctx.guild)
+    synced = await bot.tree.sync()
+    await ctx.send(f"✅ {len(synced)} commandes slash synchronisées !")
 
 
 @bot.event
@@ -93,6 +94,13 @@ async def on_command_error(ctx, error):
         await ctx.send("❌ Invalid argument provided.")
     else:
         await ctx.send(f"❌ An error occurred: {error}")
+
+
+if __name__ == "__main__":
+    if not TOKEN:
+        raise ValueError("DISCORD_BOT_TOKEN environment variable is not set.")
+    bot.run(TOKEN)
+
 
 
 if __name__ == "__main__":

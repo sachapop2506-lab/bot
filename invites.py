@@ -3,9 +3,10 @@ from discord import app_commands
 from discord.ext import commands
 import json
 import os
+from utils import data_path
 
-INVITES_FILE = os.path.join(os.path.dirname(__file__), "invites_data.json")
-INVITES_CONFIG_FILE = os.path.join(os.path.dirname(__file__), "invites_config.json")
+INVITES_FILE = data_path("invites_data.json")
+INVITES_CONFIG_FILE = data_path("invites_config.json")
 
 
 def load_data() -> dict:

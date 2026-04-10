@@ -4,8 +4,9 @@ from discord.ext import commands
 import json
 import os
 from datetime import datetime, timezone
+from utils import data_path
 
-LOGS_CONFIG_FILE = os.path.join(os.path.dirname(__file__), "logs_config.json")
+LOGS_CONFIG_FILE = data_path("logs_config.json")
 
 
 def load_config() -> dict:

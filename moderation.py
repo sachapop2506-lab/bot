@@ -7,8 +7,9 @@ import re
 import asyncio
 from datetime import datetime, timezone, timedelta
 from collections import defaultdict
+from utils import data_path
 
-WARNS_FILE = os.path.join(os.path.dirname(__file__), "warns.json")
+WARNS_FILE = data_path("warns.json")
 
 URL_PATTERN = re.compile(
     r"(https?://|www\.)\S+|discord\.gg/\S+",

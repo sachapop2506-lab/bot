@@ -5,9 +5,10 @@ import json
 import os
 import random
 import time
+from utils import data_path
 
-XP_FILE = os.path.join(os.path.dirname(__file__), "xp_data.json")
-LEVELS_CONFIG_FILE = os.path.join(os.path.dirname(__file__), "levels_config.json")
+XP_FILE = data_path("xp_data.json")
+LEVELS_CONFIG_FILE = data_path("levels_config.json")
 
 XP_MIN = 15
 XP_MAX = 25

@@ -6,8 +6,9 @@ import os
 import random
 import asyncio
 from datetime import datetime, timedelta, timezone
+from utils import data_path
 
-GIVEAWAYS_FILE = os.path.join(os.path.dirname(__file__), "giveaways.json")
+GIVEAWAYS_FILE = data_path("giveaways.json")
 
 
 def load_giveaways() -> dict:

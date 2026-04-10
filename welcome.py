@@ -3,8 +3,9 @@ from discord import app_commands
 from discord.ext import commands
 import json
 import os
+from utils import data_path
 
-WELCOME_FILE = os.path.join(os.path.dirname(__file__), "welcome_config.json")
+WELCOME_FILE = data_path("welcome_config.json")
 
 
 def load_config() -> dict:

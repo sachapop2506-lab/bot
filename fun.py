@@ -129,6 +129,61 @@ class FunCog(commands.Cog):
             f"🏆 Meilleur score : **{best}**"
         )
 
+    # ─── Auto-react ─────────────────────────────────────────────────
+
+    autoreact_group = app_commands.Group(
+        name="autoreact", description="Réactions automatiques sur les messages d'un salon"
+    )
+
+    @autoreact_group.command(name="ajouter", description="Ajouter des réactions auto à un salon")
+    @app_commands.describe(
+        salon="Le salon concerné",
+        emojis="Les emojis séparés par des espaces (ex: 👍 ❤️ 😂)",
+    )
+    @app_commands.checks.has_permissions(manage_channels=True)
+    async def autoreact_ajouter(self, interaction: discord.Interaction, salon: discord.TextChannel, emojis: str):
+        emoji_list = emojis.strip().split()
+        if not emoji_list:
+            await interaction.response.send_message("❌ Aucun emoji fourni.", ephemeral=True)
+            return
+
+        config = load_config()
+        autoreacts = config.setdefault(str(interaction.guild_id), {}).setdefault("autoreact", {})
+        autoreacts[str(salon.id)] = emoji_list
+        save_config(config)
+
+        await interaction.response.send_message(
+            f"✅ Auto-react configuré sur {salon.mention} : {' '.join(emoji_list)}", ephemeral=True
+        )
+
+    @autoreact_group.command(name="retirer", description="Retirer les réactions auto d'un salon")
+    @app_commands.describe(salon="Le salon dont retirer les réactions auto")
+    @app_commands.checks.has_permissions(manage_channels=True)
+    async def autoreact_retirer(self, interaction: discord.Interaction, salon: discord.TextChannel):
+        config = load_config()
+        autoreacts = config.get(str(interaction.guild_id), {}).get("autoreact", {})
+        if str(salon.id) not in autoreacts:
+            await interaction.response.send_message(f"❌ Aucun auto-react sur {salon.mention}.", ephemeral=True)
+            return
+        del autoreacts[str(salon.id)]
+        save_config(config)
+        await interaction.response.send_message(f"✅ Auto-react retiré de {salon.mention}.", ephemeral=True)
+
+    @autoreact_group.command(name="liste", description="Voir tous les salons avec auto-react")
+    async def autoreact_liste(self, interaction: discord.Interaction):
+        config = load_config()
+        autoreacts = config.get(str(interaction.guild_id), {}).get("autoreact", {})
+        if not autoreacts:
+            await interaction.response.send_message("❌ Aucun auto-react configuré.", ephemeral=True)
+            return
+
+        embed = discord.Embed(title="⚡ Auto-reacts configurés", color=discord.Color.blurple())
+        for channel_id, emoji_list in autoreacts.items():
+            channel = interaction.guild.get_channel(int(channel_id))
+            name = channel.mention if channel else f"Salon supprimé ({channel_id})"
+            embed.add_field(name=name, value=" ".join(emoji_list), inline=False)
+        await interaction.response.send_message(embed=embed)
+
     @commands.Cog.listener()
     async def on_message(self, message: discord.Message):
         if not message.guild or message.author.bot:
@@ -137,6 +192,16 @@ class FunCog(commands.Cog):
         config = load_config()
         guild_id = str(message.guild.id)
         guild_config = config.get(guild_id, {})
+
+        # Auto-react
+        autoreacts = guild_config.get("autoreact", {})
+        if str(message.channel.id) in autoreacts:
+            for emoji in autoreacts[str(message.channel.id)]:
+                try:
+                    await message.add_reaction(emoji)
+                except discord.HTTPException:
+                    pass
+
         route_channel_id = guild_config.get("route_channel")
 
         if not route_channel_id:

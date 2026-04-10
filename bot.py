@@ -96,6 +96,7 @@ async def on_command_error(ctx, error):
         await ctx.send("❌ Invalid argument provided.")
     else:
         await ctx.send(f"❌ An error occurred: {error}")
+        await bot.load_extension("utils")
 
 
 if __name__ == "__main__":

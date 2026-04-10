@@ -24,6 +24,7 @@ async def on_ready():
     await bot.load_extension("levels")
     await bot.load_extension("logs")
     await bot.load_extension("brawlstars")
+    await bot.load_extension("fun")
     await bot.tree.sync()
     print(f"Logged in as {bot.user} (ID: {bot.user.id})")
     print("Slash commands synced.")

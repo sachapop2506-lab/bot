@@ -38,30 +38,42 @@ async def suspense(channel):
 
 async def update_embed(bot, gw, msg):
     guild = bot.get_guild(int(gw["guild_id"]))
-
     members = [guild.get_member(int(uid)) for uid in gw["participants"] if guild.get_member(int(uid))]
 
-    e = discord.Embed(
-        title=f"🎁 {gw['prize']}",
-        description="Clique pour participer 🎉",
-        color=0xFFD700
-    )
-
-    e.add_field(name="👥 Participants", value=f"**{len(members)}**", inline=True)
-    e.add_field(name="🏆 Gagnants", value=f"**{gw['winners']}**", inline=True)
+    e = discord.Embed(title=f"🎁 {gw['prize']}", color=0xFFD700)
+    e.add_field(name="👥 Participants", value=f"{len(members)}", inline=True)
+    e.add_field(name="🏆 Gagnants", value=f"{gw['winners']}", inline=True)
 
     if gw.get("bonus_role"):
-        e.add_field(name="🎭 Bonus", value=f"<@&{gw['bonus_role']}> (x2 chances)", inline=False)
+        e.add_field(name="🎭 Bonus", value=f"<@&{gw['bonus_role']}> (x2)", inline=False)
 
     if not gw["ended"]:
         e.add_field(name="⏳ Fin", value=f"<t:{int(gw['end_time'])}:R>", inline=False)
+    else:
+        e.add_field(name="📌 Statut", value="Terminé", inline=False)
 
     preview = "\n".join(f"• {m.mention}" for m in members[:5]) or "Personne"
     e.add_field(name="👀 Aperçu", value=preview, inline=False)
 
     await msg.edit(embed=e)
 
-# ---------------- WINNER UI ---------------- #
+# ---------------- WINNER ---------------- #
+
+def draw_winners(bot, gw):
+    guild = bot.get_guild(int(gw["guild_id"]))
+    pool = []
+
+    for uid in gw["participants"]:
+        m = guild.get_member(int(uid))
+        if not m:
+            continue
+
+        pool.append(uid)
+
+        if gw.get("bonus_role") and discord.utils.get(m.roles, id=int(gw["bonus_role"])):
+            pool.append(uid)
+
+    return random.sample(pool, min(gw["winners"], len(pool))) if pool else []
 
 async def send_winner_ui(bot, gw, winners, data):
     ch = bot.get_channel(int(gw["channel_id"]))
@@ -77,16 +89,44 @@ async def send_winner_ui(bot, gw, winners, data):
         color=0x00ff00
     )
 
-    embed.add_field(
-        name="⏳ Claim",
-        value=f"<t:{ts}:F>\n<t:{ts}:R>"
-    )
+    embed.add_field(name="⏳ Claim", value=f"<t:{ts}:F>\n<t:{ts}:R>")
 
     msg = await ch.send(embed=embed, view=ClaimView())
 
     gw["last_winner_message"] = str(msg.id)
-    gw["reminder_sent"] = False
     save(data)
+
+async def process_winner(bot, gw, data):
+    ch = bot.get_channel(int(gw["channel_id"]))
+    await suspense(ch)
+
+    winners = draw_winners(bot, gw)
+
+    # ❌ aucun participant
+    if not winners:
+        await ch.send("❌ Aucun participant → giveaway annulé")
+        gw["ended"] = True
+        gw["cancelled"] = True
+        save(data)
+
+        msg = await ch.fetch_message(int(gw["message_id"]))
+        await msg.edit(view=None)
+        return
+
+    gw["winner_ids"] = winners
+    gw["claimed"] = []
+
+    gw["claim_deadline"] = (
+        datetime.now(tz=timezone.utc) + timedelta(seconds=gw["claim_time"])
+    ).timestamp()
+
+    save(data)
+
+    await send_winner_ui(bot, gw, winners, data)
+
+    # 🧼 remove boutons
+    msg = await ch.fetch_message(int(gw["message_id"]))
+    await msg.edit(view=None)
 
 # ---------------- CLAIM ---------------- #
 
@@ -97,9 +137,9 @@ class ClaimView(discord.ui.View):
     @discord.ui.button(label="🎁 Claim", style=discord.ButtonStyle.green, custom_id="gw_claim")
     async def claim(self, i: discord.Interaction, _):
         data = load()
-
         gw = None
-        for g in data.values():
+
+        forg in data.values():
             if g.get("last_winner_message") == str(i.message.id):
                 gw = g
                 break

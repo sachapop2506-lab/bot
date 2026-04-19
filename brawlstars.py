@@ -30,7 +30,7 @@ def get_player(data, uid):
         }
     return data[uid]
 
-# ---------- BRAWLERS ---------- #
+# ---------- CONFIG ---------- #
 
 BRAWLERS = {
     "Shelly": {"rarity":"Common"},
@@ -54,6 +54,10 @@ RARITY = {
 def get_multiplier(trophies):
     return 1 + (trophies // 100) * 0.2
 
+def progress_bar(value, max_value=11, size=10):
+    filled = int(size * value / max_value)
+    return "🟩" * filled + "⬛" * (size - filled)
+
 def roll_rarity():
     r = random.randint(1, 100)
     total = 0
@@ -64,6 +68,47 @@ def roll_rarity():
 
 def random_brawler(rarity):
     return random.choice([b for b,v in BRAWLERS.items() if v["rarity"] == rarity])
+
+# ---------- EMBED UI ---------- #
+
+def create_embed(p, extra=""):
+    b = p["selected"]
+    lvl = p["brawlers"][b]["level"]
+
+    multi = get_multiplier(p["trophies"])
+    cost = int(100 * (1.5 ** (lvl - 1)))
+
+    embed = discord.Embed(
+        title="🎮 BRAWL STARS BOT",
+        description=f"🎯 **{b}** (lvl {lvl})\n{extra}",
+        color=0xf1c40f
+    )
+
+    embed.add_field(
+        name="🏆 Progression",
+        value=f"🏆 {p['trophies']}\n💰 x{multi:.1f}",
+        inline=True
+    )
+
+    embed.add_field(
+        name="💰 Ressources",
+        value=f"🪙 {p['coins']}\n🎁 {p['boxes']}",
+        inline=True
+    )
+
+    embed.add_field(
+        name="📈 Niveau",
+        value=f"{progress_bar(lvl)} (lvl {lvl}/11)",
+        inline=False
+    )
+
+    embed.add_field(
+        name="⬆️ Upgrade",
+        value=f"{cost} coins",
+        inline=False
+    )
+
+    return embed
 
 # ---------- BOX ---------- #
 
@@ -83,7 +128,7 @@ def open_box(p):
     else:
         bonus = random.randint(20, 60)
         p["coins"] += bonus
-        rewards.append(f"💰 Bonus {bonus} coins (doublon)")
+        rewards.append(f"💰 +{bonus} coins (doublon)")
 
     return rewards
 
@@ -92,7 +137,7 @@ def open_box(p):
 class BrawlerSelect(discord.ui.Select):
     def __init__(self, player):
         options = [
-            discord.SelectOption(label=b, description=f"Level {player['brawlers'][b]['level']}")
+            discord.SelectOption(label=b, description=f"lvl {player['brawlers'][b]['level']}")
             for b in player["brawlers"]
         ]
         super().__init__(placeholder="Choisir un brawler", options=options)
@@ -104,9 +149,12 @@ class BrawlerSelect(discord.ui.Select):
         p["selected"] = self.values[0]
         save(data)
 
-        await interaction.response.send_message(
-            f"✅ {self.values[0]} sélectionné",
-            ephemeral=True
+        view = MainView(interaction.user)
+        view.add_item(BrawlerSelect(p))
+
+        await interaction.response.edit_message(
+            embed=create_embed(p, f"\n✅ {self.values[0]} sélectionné"),
+            view=view
         )
 
 # ---------- MAIN VIEW ---------- #
@@ -137,9 +185,12 @@ class MainView(discord.ui.View):
 
         save(data)
 
+        view = MainView(self.user)
+        view.add_item(BrawlerSelect(p))
+
         await i.response.edit_message(
-            content=f"👊 +{gain} coins (x{multi:.1f}) | 🏆 +1{bonus}",
-            view=self
+            embed=create_embed(p, f"\n👊 +{gain} coins{bonus}"),
+            view=view
         )
 
     @discord.ui.button(label="🎁 Box", style=discord.ButtonStyle.success)
@@ -155,7 +206,13 @@ class MainView(discord.ui.View):
 
         save(data)
 
-        await i.response.send_message("\n".join(rewards), ephemeral=True)
+        view = MainView(self.user)
+        view.add_item(BrawlerSelect(p))
+
+        await i.response.edit_message(
+            embed=create_embed(p, "\n" + "\n".join(rewards)),
+            view=view
+        )
 
     @discord.ui.button(label="⬆️ Upgrade", style=discord.ButtonStyle.secondary)
     async def upgrade(self, i, _):
@@ -163,9 +220,9 @@ class MainView(discord.ui.View):
         p = get_player(data, str(self.user.id))
 
         b = p["selected"]
-        info = p["brawlers"][b]
+        lvl = p["brawlers"][b]["level"]
 
-        cost = int(100 * (1.5 ** (info["level"] - 1)))
+        cost = int(100 * (1.5 ** (lvl - 1)))
 
         if p["coins"] < cost:
             return await i.response.send_message(
@@ -174,13 +231,16 @@ class MainView(discord.ui.View):
             )
 
         p["coins"] -= cost
-        info["level"] += 1
+        p["brawlers"][b]["level"] += 1
 
         save(data)
 
-        await i.response.send_message(
-            f"⬆️ {b} level {info['level']} (💸 -{cost})",
-            ephemeral=True
+        view = MainView(self.user)
+        view.add_item(BrawlerSelect(p))
+
+        await i.response.edit_message(
+            embed=create_embed(p, f"\n⬆️ {b} level {p['brawlers'][b]['level']}"),
+            view=view
         )
 
 # ---------- COG ---------- #
@@ -197,17 +257,11 @@ class BSGame(commands.Cog):
         view = MainView(i.user)
         view.add_item(BrawlerSelect(p))
 
-        b = p["selected"]
-        lvl = p["brawlers"][b]["level"]
-
-        txt = f"""
-🏆 {p['trophies']} | 🪙 {p['coins']} | 🎁 {p['boxes']}
-🎯 Actif: {b} (lvl {lvl})
-💰 Multiplicateur: x{get_multiplier(p['trophies']):.1f}
-⬆️ Upgrade: {int(100 * (1.5 ** (lvl - 1)))} coins
-"""
-
-        await i.response.send_message(txt, view=view, ephemeral=True)
+        await i.response.send_message(
+            embed=create_embed(p),
+            view=view,
+            ephemeral=True
+        )
 
     @app_commands.command(name="leaderboard")
     async def leaderboard(self, i: discord.Interaction):

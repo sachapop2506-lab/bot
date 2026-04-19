@@ -147,6 +147,8 @@ class BSGame(commands.Cog):
         embed.add_field(name="Résultat", value=result)
 
         await i.response.send_message(embed=embed)
+        async def setup(bot):
+    await bot.add_cog(BSGame(bot))
 
 # ---------------- SETUP ---------------- #
 

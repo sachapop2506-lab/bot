@@ -143,12 +143,11 @@ class BSGame(commands.Cog):
 
         save(data)
 
-        embed = discord.Embed(title="⚔️ Combat", description=log[:1000], color=0xe74c3c)
+               embed = discord.Embed(title="⚔️ Combat", description=log[:1000], color=0xe74c3c)
         embed.add_field(name="Résultat", value=result)
 
         await i.response.send_message(embed=embed)
-        async def setup(bot):
-    await bot.add_cog(BSGame(bot))
+
 
 # ---------------- SETUP ---------------- #
 

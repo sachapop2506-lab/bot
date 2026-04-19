@@ -153,7 +153,7 @@ RARITY = {
     "Rare": 25,
     "Super Rare": 10,
     "Epic": 4,
-    "Legendary": 1
+    "Legendary": 1,
     "Ultra Légendaire": 0.05
     
 }

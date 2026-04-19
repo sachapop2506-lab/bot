@@ -168,7 +168,7 @@ def progress_bar(value, max_value=11, size=10):
     return "🟩" * filled + "⬛" * (size - filled)
 
 def roll_rarity():
-    r = random.randint(1, 100)
+    r = random.random() * 100
     total = 0
     for rarity, chance in RARITY.items():
         total += chance

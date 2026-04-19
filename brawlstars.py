@@ -3,7 +3,7 @@ from discord.ext import commands
 from discord import app_commands
 import json, os, random
 
-FILE = "bs_advanced.json"
+FILE = "bs_full.json"
 
 # ---------- DATA ---------- #
 
@@ -24,14 +24,8 @@ def get_player(data, uid):
             "trophies": 0,
             "boxes": 5,
             "selected": "Shelly",
-            "pity": 0,
             "brawlers": {
-                "Shelly": {
-                    "level": 1,
-                    "pp": 0,
-                    "gadgets": 0,
-                    "starpower": False
-                }
+                "Shelly": {"level":1,"pp":0}
             }
         }
     return data[uid]
@@ -39,12 +33,12 @@ def get_player(data, uid):
 # ---------- BRAWLERS ---------- #
 
 BRAWLERS = {
-    "Shelly": {"rarity": "Common", "hp": 100, "dmg": 15},
-    "Nita": {"rarity": "Rare", "hp": 110, "dmg": 13},
-    "Colt": {"rarity": "Rare", "hp": 90, "dmg": 18},
-    "Bull": {"rarity": "Epic", "hp": 140, "dmg": 12},
-    "Jessie": {"rarity": "Super Rare", "hp": 95, "dmg": 14},
-    "Spike": {"rarity": "Legendary", "hp": 80, "dmg": 22},
+    "Shelly": {"rarity":"Common"},
+    "Nita": {"rarity":"Rare"},
+    "Colt": {"rarity":"Rare"},
+    "Bull": {"rarity":"Epic"},
+    "Jessie": {"rarity":"Super Rare"},
+    "Spike": {"rarity":"Legendary"},
 }
 
 RARITY = {
@@ -55,68 +49,67 @@ RARITY = {
     "Legendary": 1
 }
 
-# ---------- DROP SYSTEM ---------- #
+# ---------- UTILS ---------- #
 
-def roll_rarity(pity):
-    chances = RARITY.copy()
+def get_multiplier(trophies):
+    return 1 + (trophies // 100) * 0.2
 
-    # PITY SYSTEM
-    chances["Legendary"] += pity
-
-    r = random.randint(1, sum(chances.values()))
+def roll_rarity():
+    r = random.randint(1, 100)
     total = 0
-    for rarity, val in chances.items():
-        total += val
+    for rarity, chance in RARITY.items():
+        total += chance
         if r <= total:
             return rarity
 
-def get_brawler(rarity):
+def random_brawler(rarity):
     return random.choice([b for b,v in BRAWLERS.items() if v["rarity"] == rarity])
 
 # ---------- BOX ---------- #
 
 def open_box(p):
     rewards = []
-    coins = random.randint(20, 70)
+
+    coins = random.randint(20, 80)
     p["coins"] += coins
     rewards.append(f"🪙 {coins} coins")
 
-    rarity = roll_rarity(p["pity"])
-    brawler = get_brawler(rarity)
-
-    if rarity == "Legendary":
-        p["pity"] = 0
-    else:
-        p["pity"] += 1
+    rarity = roll_rarity()
+    brawler = random_brawler(rarity)
 
     if brawler not in p["brawlers"]:
-        p["brawlers"][brawler] = {"level":1,"pp":0,"gadgets":0,"starpower":False}
-        rewards.append(f"✨ NEW {brawler} ({rarity})")
+        p["brawlers"][brawler] = {"level":1,"pp":0}
+        rewards.append(f"✨ Nouveau {brawler} ({rarity})")
     else:
-        pp = random.randint(5, 25)
+        pp = random.randint(10, 25)
         p["brawlers"][brawler]["pp"] += pp
-        rewards.append(f"⚡ {brawler} +{pp}pp")
+        rewards.append(f"⚡ {brawler} +{pp} PP")
 
     return rewards
 
-# ---------- FIGHT ---------- #
+# ---------- SELECT MENU ---------- #
 
-def simulate_fight(p1, p2):
-    b1 = BRAWLERS[p1["selected"]]
-    b2 = BRAWLERS[p2["selected"]]
+class BrawlerSelect(discord.ui.Select):
+    def __init__(self, player):
+        options = [
+            discord.SelectOption(label=b, description=f"Level {player['brawlers'][b]['level']}")
+            for b in player["brawlers"]
+        ]
+        super().__init__(placeholder="Choisir un brawler", options=options)
 
-    hp1 = b1["hp"] + p1["brawlers"][p1["selected"]]["level"] * 5
-    hp2 = b2["hp"] + p2["brawlers"][p2["selected"]]["level"] * 5
+    async def callback(self, interaction):
+        data = load()
+        p = get_player(data, str(interaction.user.id))
 
-    while hp1 > 0 and hp2 > 0:
-        hp2 -= b1["dmg"]
-        if hp2 <= 0:
-            return True
-        hp1 -= b2["dmg"]
+        p["selected"] = self.values[0]
+        save(data)
 
-    return False
+        await interaction.response.send_message(
+            f"✅ {self.values[0]} sélectionné",
+            ephemeral=True
+        )
 
-# ---------- VIEWS ---------- #
+# ---------- MAIN VIEW ---------- #
 
 class MainView(discord.ui.View):
     def __init__(self, user):
@@ -131,20 +124,21 @@ class MainView(discord.ui.View):
         data = load()
         p = get_player(data, str(self.user.id))
 
-        gain = random.randint(5,15)
+        multi = get_multiplier(p["trophies"])
+        gain = int(random.randint(5,15) * multi)
+
         p["coins"] += gain
         p["trophies"] += 1
 
+        bonus = ""
         if random.randint(1,10) == 1:
             p["boxes"] += 1
-            bonus = " 🎁 box gagnée!"
-        else:
-            bonus = ""
+            bonus = " 🎁 box!"
 
         save(data)
 
         await i.response.edit_message(
-            content=f"👊 +{gain} coins | 🏆 +1{bonus}",
+            content=f"👊 +{gain} coins (x{multi:.1f}) | 🏆 +1{bonus}",
             view=self
         )
 
@@ -154,76 +148,77 @@ class MainView(discord.ui.View):
         p = get_player(data, str(self.user.id))
 
         if p["boxes"] <= 0:
-            return await i.response.send_message("❌ 0 box", ephemeral=True)
+            return await i.response.send_message("❌ Pas de box", ephemeral=True)
 
         p["boxes"] -= 1
         rewards = open_box(p)
 
         save(data)
 
-        await i.response.send_message(
-            "\n".join(rewards),
-            ephemeral=True
-        )
+        await i.response.send_message("\n".join(rewards), ephemeral=True)
 
-    @discord.ui.button(label="⚔️ Fight IA", style=discord.ButtonStyle.danger)
-    async def fight_ai(self, i, _):
+    @discord.ui.button(label="⬆️ Upgrade", style=discord.ButtonStyle.secondary)
+    async def upgrade(self, i, _):
         data = load()
         p = get_player(data, str(self.user.id))
 
-        bot_p = {
-            "selected": random.choice(list(BRAWLERS.keys())),
-            "brawlers": {b: {"level": random.randint(1,5)} for b in BRAWLERS}
-        }
+        b = p["selected"]
+        info = p["brawlers"][b]
 
-        win = simulate_fight(p, bot_p)
+        cost = 50 * info["level"]
 
-        if win:
-            p["trophies"] += 10
-            result = "🏆 Victoire +10"
-        else:
-            result = "💀 Défaite"
+        if info["pp"] < cost:
+            return await i.response.send_message(
+                f"❌ Pas assez de PP ({cost})",
+                ephemeral=True
+            )
+
+        info["pp"] -= cost
+        info["level"] += 1
 
         save(data)
 
-        await i.response.send_message(result, ephemeral=True)
+        await i.response.send_message(
+            f"⬆️ {b} level {info['level']}",
+            ephemeral=True
+        )
 
 # ---------- COG ---------- #
 
-class BSAdvanced(commands.Cog):
+class BSFull(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
     @app_commands.command(name="bs")
     async def bs(self, i: discord.Interaction):
-        p = get_player(load(), str(i.user.id))
-
-        txt = f"""
-🏆 {p['trophies']} | 🪙 {p['coins']} | 🎁 {p['boxes']}
-🎯 Brawler: {p['selected']}
-🔥 Pity: {p['pity']}
-"""
-
-        await i.response.send_message(
-            txt,
-            view=MainView(i.user),
-            ephemeral=True
-        )
-
-    @app_commands.command(name="select")
-    async def select(self, i: discord.Interaction, brawler: str):
         data = load()
         p = get_player(data, str(i.user.id))
 
-        if brawler not in p["brawlers"]:
-            return await i.response.send_message("❌ pas débloqué", ephemeral=True)
+        view = MainView(i.user)
+        view.add_item(BrawlerSelect(p))
 
-        p["selected"] = brawler
-        save(data)
+        txt = f"""
+🏆 {p['trophies']} | 🪙 {p['coins']} | 🎁 {p['boxes']}
+🎯 Actif: {p['selected']}
+💰 Multiplicateur: x{get_multiplier(p['trophies']):.1f}
+"""
 
-        await i.response.send_message(f"✅ {brawler} sélectionné", ephemeral=True)
+        await i.response.send_message(txt, view=view, ephemeral=True)
+
+    @app_commands.command(name="leaderboard")
+    async def leaderboard(self, i: discord.Interaction):
+        data = load()
+
+        top = sorted(data.items(), key=lambda x: x[1]["trophies"], reverse=True)[:10]
+
+        txt = "\n".join([
+            f"<@{uid}> - {p['trophies']}🏆"
+            for uid, p in top
+        ])
+
+        await i.response.send_message(f"🏆 Classement:\n{txt}")
 
 # ---------- SETUP ---------- #
 
 async def setup(bot):
-    await bot.add_cog(BSAdvanced(bot))
+    await bot.add_cog(BSFull(bot))

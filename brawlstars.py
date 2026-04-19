@@ -44,7 +44,7 @@ class BSGame(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
-    # ---------------- PROFILE ---------------- #
+    # -------- PROFIL -------- #
 
     @app_commands.command(name="bs_profile")
     async def profile(self, i: discord.Interaction):
@@ -52,7 +52,7 @@ class BSGame(commands.Cog):
         p = get_player(data, str(i.user.id))
         save(data)
 
-        embed = discord.Embed(title=f"👤 Profil de {i.user.name}", color=0xf1c40f)
+        embed = discord.Embed(title=f"👤 {i.user.name}", color=0xf1c40f)
         embed.add_field(name="🏆 Trophées", value=p["trophies"])
         embed.add_field(name="🪙 Pièces", value=p["coins"])
         embed.add_field(name="🎮 Brawler", value=p["selected"])
@@ -60,37 +60,32 @@ class BSGame(commands.Cog):
 
         await i.response.send_message(embed=embed)
 
-    # ---------------- OPEN BOX ---------------- #
+    # -------- BOX -------- #
 
     @app_commands.command(name="bs_open")
     async def open_box(self, i: discord.Interaction):
         data = load()
         p = get_player(data, str(i.user.id))
 
-        reward_type = random.choices(
-            ["coins", "brawler"],
-            weights=[70, 30]
-        )[0]
+        reward = random.choices(["coins", "brawler"], weights=[70, 30])[0]
 
-        if reward_type == "coins":
+        if reward == "coins":
             amount = random.randint(20, 100)
             p["coins"] += amount
-            msg = f"🪙 Tu gagnes {amount} pièces !"
-
+            msg = f"🪙 +{amount} pièces"
         else:
             new = random.choice(ALL_BRAWLERS)
             if new in p["brawlers"]:
-                amount = 50
-                p["coins"] += amount
-                msg = f"🔁 Doublon → {amount} pièces"
+                p["coins"] += 50
+                msg = "🔁 Doublon → +50 pièces"
             else:
                 p["brawlers"].append(new)
-                msg = f"🎉 Nouveau brawler débloqué : **{new}** !"
+                msg = f"🎉 Nouveau brawler : {new}"
 
         save(data)
         await i.response.send_message(msg)
 
-    # ---------------- SELECT ---------------- #
+    # -------- SELECT -------- #
 
     @app_commands.command(name="bs_select")
     async def select(self, i: discord.Interaction, brawler: str):
@@ -98,56 +93,59 @@ class BSGame(commands.Cog):
         p = get_player(data, str(i.user.id))
 
         if brawler not in p["brawlers"]:
-            return await i.response.send_message("❌ Tu ne possèdes pas ce brawler")
+            return await i.response.send_message("❌ Tu ne l'as pas")
 
         p["selected"] = brawler
         save(data)
 
         await i.response.send_message(f"✅ {brawler} sélectionné")
 
-    # ---------------- FIGHT ---------------- #
+    # -------- FIGHT -------- #
 
     @app_commands.command(name="bs_fight")
     async def fight(self, i: discord.Interaction):
         data = load()
         p = get_player(data, str(i.user.id))
 
-        player_brawler = p["selected"]
-        enemy_brawler = random.choice(ALL_BRAWLERS)
+        player = p["selected"]
+        enemy = random.choice(ALL_BRAWLERS)
 
-        p_stats = BRAWLERS[player_brawler]
-        e_stats = BRAWLERS[enemy_brawler]
+        ps = BRAWLERS[player]
+        es = BRAWLERS[enemy]
 
-        hp_p = p_stats["hp"]
-        hp_e = e_stats["hp"]
+        hp_p = ps["hp"]
+        hp_e = es["hp"]
 
         log = ""
 
         while hp_p > 0 and hp_e > 0:
-            dmg_p = random.randint(p_stats["min"], p_stats["max"])
-            dmg_e = random.randint(e_stats["min"], e_stats["max"])
+            dmg_p = random.randint(ps["min"], ps["max"])
+            dmg_e = random.randint(es["min"], es["max"])
 
             hp_e -= dmg_p
             hp_p -= dmg_e
 
-            log += f"💥 Tu fais {dmg_p} | Ennemi fait {dmg_e}\n"
+            log += f"💥 {player} fait {dmg_p} | {enemy} fait {dmg_e}\n"
 
         if hp_p > 0:
             gain = random.randint(10, 25)
             p["trophies"] += gain
-            result = f"🏆 Victoire ! +{gain} trophées"
+            result = f"🏆 Victoire +{gain}"
         else:
             loss = random.randint(5, 15)
             p["trophies"] = max(0, p["trophies"] - loss)
-            result = f"💀 Défaite ! -{loss} trophées"
+            result = f"💀 Défaite -{loss}"
 
         save(data)
 
-               embed = discord.Embed(title="⚔️ Combat", description=log[:1000], color=0xe74c3c)
+        embed = discord.Embed(
+            title="⚔️ Combat",
+            description=log[:1000],
+            color=0xe74c3c
+        )
         embed.add_field(name="Résultat", value=result)
 
         await i.response.send_message(embed=embed)
-
 
 # ---------------- SETUP ---------------- #
 

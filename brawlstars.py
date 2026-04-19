@@ -152,5 +152,5 @@ class BSGame(commands.Cog):
 
 # ---------------- SETUP ---------------- #
 
-async def setup(bot):
-    await bot.add_cog(BSGame(bot))
+    async def setup(bot):
+        await bot.add_cog(BSGame(bot))

@@ -37,7 +37,7 @@ async def suspense(channel):
 
 # ---------------- EMBED ---------------- #
 
-async def update_embed(bot, gw, msg):
+async def update_embed(gw, msg):
     e = discord.Embed(title=f"🎁 {gw['prize']}", color=0xFFD700)
     e.add_field(name="👥 Participants", value=len(gw["participants"]))
     e.add_field(name="🏆 Winners", value=gw["winners"])
@@ -57,6 +57,7 @@ async def send_winner_ui(bot, gw, winners, data):
     ch = bot.get_channel(int(gw["channel_id"]))
 
     text = ", ".join(f"<@{w}>" for w in winners)
+    ts = int(gw["claim_deadline"])
 
     embed = discord.Embed(
         title="🏆 Nouveau(x) gagnant(s)",
@@ -65,9 +66,11 @@ async def send_winner_ui(bot, gw, winners, data):
     )
 
     embed.add_field(
-        name="⏳ Claim",
-        value=f"<t:{int(gw['claim_deadline'])}:R>"
+        name="⏳ Temps pour claim",
+        value=f"⏱️ Fin : <t:{ts}:F>\n⌛ Restant : <t:{ts}:R>"
     )
+
+    embed.set_footer(text="⚠️ Non réclamé = reroll automatique")
 
     msg = await ch.send(embed=embed, view=ClaimView())
 
@@ -107,7 +110,7 @@ class ClaimView(discord.ui.View):
         gw["claimed"].append(uid)
         save(data)
 
-        await i.response.send_message("🎉 Claim validé", ephemeral=True)
+        await i.response.send_message("🎉 Récompense récupérée !", ephemeral=True)
 
 # ---------------- JOIN + MANAGE ---------------- #
 
@@ -158,10 +161,7 @@ class ManageView(discord.ui.View):
         end = start + 25
         page = self.gw["participants"][start:end]
 
-        options = [
-            discord.SelectOption(label=uid, value=uid)
-            for uid in page
-        ]
+        options = [discord.SelectOption(label=uid, value=uid) for uid in page]
 
         self.add_item(RemoveSelect(self.gw, options))
 
@@ -229,7 +229,6 @@ def draw_winners(bot, gw):
 
 async def process_winner(bot, gw, data):
     ch = bot.get_channel(int(gw["channel_id"]))
-
     await suspense(ch)
 
     winners = draw_winners(bot, gw)
@@ -273,8 +272,17 @@ class Giveaway(commands.Cog):
     # ---------------- COMMANDES ---------------- #
 
     @app_commands.command(name="giveaway_create")
-    async def create(self, i: discord.Interaction, prize: str, duration: str, winners: int, role_bonus: discord.Role = None):
+    async def create(
+        self,
+        i: discord.Interaction,
+        prize: str,
+        duration: str,
+        winners: int,
+        claim: str,
+        role_bonus: discord.Role = None
+    ):
         seconds = parse(duration)
+        claim_s = parse(claim)
 
         msg = await i.channel.send(
             embed=discord.Embed(title=f"🎁 {prize}", description="Clique pour participer"),
@@ -293,11 +301,11 @@ class Giveaway(commands.Cog):
             "bonus_role": str(role_bonus.id) if role_bonus else None,
             "ended": False,
             "end_time": (datetime.now(tz=timezone.utc) + timedelta(seconds=seconds)).timestamp(),
-            "claim_time": 600
+            "claim_time": claim_s
         }
 
         save(data)
-        await i.response.send_message("✅ Créé", ephemeral=True)
+        await i.response.send_message("✅ Giveaway créé", ephemeral=True)
 
     @app_commands.command(name="giveaway_reroll")
     async def reroll(self, i: discord.Interaction, message_id: str):

@@ -157,6 +157,16 @@ RARITY = {
     "Ultra Légendaire": 0.1
 }
 
+RARITY_MULTIPLIER = {
+    "Common": 1.0,
+    "Rare": 1.2,
+    "Super Rare": 1.5,
+    "Epic": 2.0,
+    "Mythique": 3.0,
+    "Légendaire": 5.0,
+    "Ultra Légendaire": 8.0
+}
+
 # ---------- UTILS ---------- #
 
 def get_multiplier(trophies):

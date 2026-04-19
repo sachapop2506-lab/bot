@@ -102,51 +102,22 @@ class BSGame(commands.Cog):
 
     # -------- FIGHT -------- #
 
-    @app_commands.command(name="bs_fight")
-    async def fight(self, i: discord.Interaction):
-        data = load()
-        p = get_player(data, str(i.user.id))
+   @app_commands.command(name="bs_fight")
+async def fight(self, i: discord.Interaction):
+    data = load()
+    p = get_player(data, str(i.user.id))
 
-        player = p["selected"]
-        enemy = random.choice(ALL_BRAWLERS)
+    player = p["selected"]
+    enemy = random.choice(ALL_BRAWLERS)
 
-        ps = BRAWLERS[player]
-        es = BRAWLERS[enemy]
+    ps = BRAWLERS[player]
+    es = BRAWLERS[enemy]
 
-        hp_p = ps["hp"]
-        hp_e = es["hp"]
+    view = FightView(i.user.id, player, enemy, ps, es, data)
 
-        log = ""
+    embed = view.get_embed()
 
-        while hp_p > 0 and hp_e > 0:
-            dmg_p = random.randint(ps["min"], ps["max"])
-            dmg_e = random.randint(es["min"], es["max"])
-
-            hp_e -= dmg_p
-            hp_p -= dmg_e
-
-            log += f"💥 {player} fait {dmg_p} | {enemy} fait {dmg_e}\n"
-
-        if hp_p > 0:
-            gain = random.randint(10, 25)
-            p["trophies"] += gain
-            result = f"🏆 Victoire +{gain}"
-        else:
-            loss = random.randint(5, 15)
-            p["trophies"] = max(0, p["trophies"] - loss)
-            result = f"💀 Défaite -{loss}"
-
-        save(data)
-
-        embed = discord.Embed(
-            title="⚔️ Combat",
-            description=log[:1000],
-            color=0xe74c3c
-        )
-        embed.add_field(name="Résultat", value=result)
-
-        await i.response.send_message(embed=embed)
-
+    await i.response.send_message(embed=embed, view=view)
 # ---------------- SETUP ---------------- #
 
 async def setup(bot):

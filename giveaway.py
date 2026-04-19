@@ -48,7 +48,7 @@ async def update_embed(bot, gw, msg):
 
     e = discord.Embed(
         title=f"🎁 {gw['prize']}",
-        description="Clique sur le bouton pour participer 🎉",
+        description="Clique pour participer 🎉",
         color=0xFFD700
     )
 
@@ -60,8 +60,6 @@ async def update_embed(bot, gw, msg):
 
     if not gw["ended"]:
         e.add_field(name="⏳ Fin", value=f"<t:{int(gw['end_time'])}:R>", inline=False)
-    else:
-        e.add_field(name="📌 Statut", value="Terminé", inline=False)
 
     preview = "\n".join(f"• {m.mention}" for m in members[:5]) or "Personne"
     e.add_field(name="👀 Aperçu", value=preview, inline=False)
@@ -74,11 +72,14 @@ async def send_winner_ui(bot, gw, winners, data):
     ch = bot.get_channel(int(gw["channel_id"]))
     ts = int(gw["claim_deadline"])
 
-    text = ", ".join(f"<@{w}>" for w in winners)
+    mentions = " ".join(f"<@{w}>" for w in winners)
+
+    # 📣 ping auto
+    await ch.send(f"🎉 {mentions} vous avez gagné ! Venez claim !")
 
     embed = discord.Embed(
         title="🏆 Nouveau(x) gagnant(s)",
-        description=f"🎉 {text}",
+        description=f"{mentions}",
         color=0x00ff00
     )
 
@@ -92,6 +93,7 @@ async def send_winner_ui(bot, gw, winners, data):
     msg = await ch.send(embed=embed, view=ClaimView())
 
     gw["last_winner_message"] = str(msg.id)
+    gw["reminder_sent"] = False
     save(data)
 
 # ---------------- CLAIM ---------------- #
@@ -127,7 +129,15 @@ class ClaimView(discord.ui.View):
         gw["claimed"].append(uid)
         save(data)
 
-        await i.response.send_message("🎉 Récompense récupérée !", ephemeral=True)
+        # 🎉 message public
+        embed = discord.Embed(
+            title="🎉 GG !",
+            description=f"Bravo <@{uid}> tu as gagné **{gw['prize']}** !",
+            color=0x2ecc71
+        )
+        await i.channel.send(embed=embed)
+
+        await i.response.send_message("🎁 Récompense récupérée !", ephemeral=True)
 
 # ---------------- VIEW ---------------- #
 
@@ -151,20 +161,6 @@ class GiveawayView(discord.ui.View):
 
         await update_embed(i.client, gw, i.message)
         await i.response.send_message("Participation mise à jour", ephemeral=True)
-
-    @discord.ui.button(label="⚙️ Manage", style=discord.ButtonStyle.gray, custom_id="gw_manage")
-    async def manage(self, i: discord.Interaction, _):
-        data = load()
-        gw = data.get(str(i.message.id))
-
-        if str(i.user.id) != gw["host_id"]:
-            return await i.response.send_message("No permission", ephemeral=True)
-
-        gw["_guild"] = i.guild
-        view = ManageView(gw)
-        view.build()
-
-        await i.response.send_message("Manage:", view=view, ephemeral=True)
 
 # ---------------- MANAGE ---------------- #
 
@@ -200,11 +196,6 @@ class ManageView(discord.ui.View):
 
         self.add_item(RemoveSelect(self.gw, options))
 
-        if self.page > 0:
-            self.add_item(Prev())
-        if end < len(self.gw["participants"]):
-            self.add_item(Next())
-
     async def refresh(self, i):
         self.build()
         await i.response.edit_message(view=self)
@@ -224,22 +215,6 @@ class RemoveSelect(discord.ui.Select):
 
         save(data)
         await i.response.send_message("Retiré", ephemeral=True)
-
-class Next(discord.ui.Button):
-    def __init__(self):
-        super().__init__(label="➡️")
-
-    async def callback(self, i):
-        self.view.page += 1
-        await self.view.refresh(i)
-
-class Prev(discord.ui.Button):
-    def __init__(self):
-        super().__init__(label="⬅️")
-
-    async def callback(self, i):
-        self.view.page -= 1
-        await self.view.refresh(i)
 
 # ---------------- LOGIC ---------------- #
 
@@ -293,10 +268,21 @@ class Giveaway(commands.Cog):
 
         for k, gw in data.items():
 
+            # fin initiale
             if not gw["ended"] and now >= gw["end_time"]:
                 gw["ended"] = True
                 await process_winner(self.bot, gw, data)
 
+            # rappel avant fin (30s)
+            if gw.get("ended") and not gw.get("reminder_sent"):
+                if gw["claim_deadline"] - now <= 30:
+                    ch = self.bot.get_channel(int(gw["channel_id"]))
+                    mentions = " ".join(f"<@{w}>" for w in gw["winner_ids"])
+                    await ch.send(f"⏰ {mentions} plus que 30 secondes pour claim !")
+                    gw["reminder_sent"] = True
+                    save(data)
+
+            # reroll auto
             elif gw["ended"] and now >= gw["claim_deadline"]:
                 if set(gw["winner_ids"]) - set(gw["claimed"]):
                     await process_winner(self.bot, gw, data)
@@ -304,7 +290,7 @@ class Giveaway(commands.Cog):
     # ---------------- COMMANDES ---------------- #
 
     @app_commands.command(name="giveaway_create")
-    async def create(self, i: discord.Interaction, prize: str, duration: str, winners: int, claim: str, role_bonus: discord.Role = None):
+    async def create(self, i: discord.Interaction, prize: str, duration: str, winners: int, claim: str):
         seconds = parse(duration)
         claim_s = parse(claim)
 
@@ -322,7 +308,6 @@ class Giveaway(commands.Cog):
             "prize": prize,
             "participants": [],
             "winners": winners,
-            "bonus_role": str(role_bonus.id) if role_bonus else None,
             "ended": False,
             "end_time": (datetime.now(tz=timezone.utc) + timedelta(seconds=seconds)).timestamp(),
             "claim_time": claim_s
@@ -332,20 +317,6 @@ class Giveaway(commands.Cog):
         await update_embed(self.bot, data[str(msg.id)], msg)
 
         await i.response.send_message("✅ Giveaway créé", ephemeral=True)
-
-    @app_commands.command(name="giveaway_reroll")
-    async def reroll(self, i: discord.Interaction, message_id: str):
-        data = load()
-        gw = data.get(message_id)
-
-        if not gw:
-            return await i.response.send_message("Introuvable", ephemeral=True)
-
-        if str(i.user.id) != gw["host_id"]:
-            return await i.response.send_message("Pas permission", ephemeral=True)
-
-        await process_winner(self.bot, gw, data)
-        await i.response.send_message("🔁 Reroll", ephemeral=True)
 
 # ---------------- SETUP ---------------- #
 

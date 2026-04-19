@@ -1,7 +1,7 @@
 import discord
 from discord.ext import commands
 from discord import app_commands
-import json, os, random
+import json, os, random, asyncio
 
 FILE = "bs_game.json"
 
@@ -9,7 +9,7 @@ FILE = "bs_game.json"
 
 def load():
     if os.path.exists(FILE):
-        with open(FILE, "r") as f:
+        with open(FILE) as f:
             return json.load(f)
     return {}
 
@@ -17,127 +17,166 @@ def save(data):
     with open(FILE, "w") as f:
         json.dump(data, f, indent=2)
 
-def get_player(data, user_id):
-    if user_id not in data:
-        data[user_id] = {
+def get_player(data, uid):
+    if uid not in data:
+        data[uid] = {
             "trophies": 0,
-            "coins": 100,
+            "coins": 200,
             "brawlers": ["Shelly"],
-            "selected": "Shelly"
+            "selected": "Shelly",
+            "skins": [],
+            "equipped_skin": None
         }
-    return data[user_id]
+    return data[uid]
 
 # ---------------- BRAWLERS ---------------- #
 
 BRAWLERS = {
-    "Shelly": {"hp": 100, "min": 10, "max": 20},
-    "Colt": {"hp": 90, "min": 12, "max": 22},
-    "Bull": {"hp": 120, "min": 8, "max": 25},
-    "Jessie": {"hp": 95, "min": 11, "max": 18},
+    "Shelly": {"hp":100,"min":10,"max":20,"ulti":35,"rarity":"Common"},
+    "Colt": {"hp":90,"min":12,"max":22,"ulti":30,"rarity":"Rare"},
+    "Bull": {"hp":120,"min":8,"max":25,"ulti":40,"rarity":"Epic"},
+    "Jessie": {"hp":95,"min":11,"max":18,"ulti":28,"rarity":"Rare"},
 }
 
-ALL_BRAWLERS = list(BRAWLERS.keys())
+SHOP = {"Skin Rouge":100,"Skin Or":250,"Skin Galaxy":500}
+queue = []
 
-# ---------------- FIGHT VIEW ---------------- #
+# ---------------- FIGHT ---------------- #
 
 class FightView(discord.ui.View):
-    def __init__(self, user_id, player, enemy, ps, es, data):
+    def __init__(self, p1, p2, data, ai=False):
         super().__init__(timeout=60)
-
-        self.user_id = user_id
-        self.player = player
-        self.enemy = enemy
-
-        self.hp_p = ps["hp"]
-        self.hp_e = es["hp"]
-
-        self.ps = ps
-        self.es = es
-
+        self.p1, self.p2 = p1, p2
+        self.ai = ai
         self.data = data
+
+        d1, d2 = get_player(data,str(p1.id)), get_player(data,str(p2.id))
+        self.b1, self.b2 = d1["selected"], d2["selected"]
+
+        self.hp1 = BRAWLERS[self.b1]["hp"]
+        self.hp2 = BRAWLERS[self.b2]["hp"]
+
+        self.turn = p1.id
         self.log = []
-        self.ulti_used = False
+        self.ulti_used = {p1.id:False,p2.id:False}
 
-    def get_embed(self):
-        embed = discord.Embed(
-            title=f"⚔️ {self.player} VS {self.enemy}",
-            description="\n".join(self.log[-5:]) or "Le combat commence !",
+    def embed(self):
+        return discord.Embed(
+            title=f"⚔️ {self.b1} VS {self.b2}",
+            description="\n".join(self.log[-4:]) or "Combat...",
             color=0x3498db
-        )
-
-        embed.add_field(
+        ).add_field(
             name="❤️ PV",
-            value=f"Toi: {self.hp_p}\nEnnemi: {self.hp_e}"
+            value=f"{self.p1.name}: {self.hp1}\n{self.p2.name}: {self.hp2}"
         )
 
-        return embed
+    async def finish(self, i):
+        d1,d2 = get_player(self.data,str(self.p1.id)),get_player(self.data,str(self.p2.id))
 
-    async def end(self, interaction):
-        p = get_player(self.data, str(self.user_id))
-
-        if self.hp_p > self.hp_e:
-            gain = random.randint(10, 25)
-            p["trophies"] += gain
-            result = f"🏆 Victoire +{gain}"
-            color = 0x2ecc71
+        if self.hp1 > self.hp2:
+            d1["trophies"] += 20
+            winner = self.p1
         else:
-            loss = random.randint(5, 15)
-            p["trophies"] = max(0, p["trophies"] - loss)
-            result = f"💀 Défaite -{loss}"
-            color = 0xe74c3c
+            d2["trophies"] += 20
+            winner = self.p2
+
+        reward = random.randint(20,80)
+        get_player(self.data,str(winner.id))["coins"] += reward
 
         save(self.data)
 
-        embed = discord.Embed(
-            title="🏁 Combat terminé",
-            description="\n".join(self.log[-5:]),
-            color=color
+        self.clear_items()
+        await i.response.edit_message(
+            embed=self.embed().add_field(name="🏆", value=f"{winner.name} gagne\n🎁 +{reward} coins"),
+            view=self
         )
 
-        embed.add_field(name="Résultat", value=result)
+    async def interaction_check(self, i):
+        return i.user.id == self.turn
 
-        self.clear_items()
-        await interaction.response.edit_message(embed=embed, view=self)
+    async def ai_play(self, msg):
+        await asyncio.sleep(1)
 
-    async def interaction_check(self, interaction):
-        return interaction.user.id == self.user_id
+        dmg = random.randint(10,25)
+        self.hp1 -= dmg
+        self.log.append(f"🤖 IA attaque {dmg}")
+        self.turn = self.p1.id
 
-    @discord.ui.button(label="⚔️ Attaquer", style=discord.ButtonStyle.primary)
-    async def attack(self, interaction: discord.Interaction, button):
+        if self.hp1 <= 0:
+            return await msg.edit(embed=self.embed())
 
-        dmg_p = random.randint(self.ps["min"], self.ps["max"])
-        dmg_e = random.randint(self.es["min"], self.es["max"])
+        await msg.edit(embed=self.embed(), view=self)
 
-        self.hp_e -= dmg_p
-        self.hp_p -= dmg_e
+    @discord.ui.button(label="⚔️ Attaque", style=discord.ButtonStyle.primary)
+    async def attack(self, i, _):
+        dmg = random.randint(10,25)
 
-        self.log.append(f"⚔️ Tu fais {dmg_p} | Ennemi fait {dmg_e}")
+        if i.user == self.p1:
+            self.hp2 -= dmg
+            self.turn = self.p2.id
+        else:
+            self.hp1 -= dmg
+            self.turn = self.p1.id
 
-        if self.hp_p <= 0 or self.hp_e <= 0:
-            return await self.end(interaction)
+        self.log.append(f"{i.user.name} fait {dmg}")
 
-        await interaction.response.edit_message(embed=self.get_embed(), view=self)
+        if self.hp1 <= 0 or self.hp2 <= 0:
+            return await self.finish(i)
+
+        await i.response.edit_message(embed=self.embed(), view=self)
+
+        if self.ai and self.turn == self.p2.id:
+            await self.ai_play(await i.original_response())
 
     @discord.ui.button(label="💥 Ulti", style=discord.ButtonStyle.danger)
-    async def ulti(self, interaction: discord.Interaction, button):
+    async def ulti(self, i, _):
+        if self.ulti_used[i.user.id]:
+            return await i.response.send_message("Déjà utilisé", ephemeral=True)
 
-        if self.ulti_used:
-            return await interaction.response.send_message("⛔ Ulti déjà utilisé", ephemeral=True)
+        self.ulti_used[i.user.id] = True
+        dmg = random.randint(25,40)
 
-        self.ulti_used = True
+        if i.user == self.p1:
+            self.hp2 -= dmg
+            self.turn = self.p2.id
+        else:
+            self.hp1 -= dmg
+            self.turn = self.p1.id
 
-        dmg_p = random.randint(self.ps["max"], self.ps["max"] + 15)
-        dmg_e = random.randint(self.es["min"], self.es["max"])
+        self.log.append(f"💥 {i.user.name} ulti {dmg}")
 
-        self.hp_e -= dmg_p
-        self.hp_p -= dmg_e
+        if self.hp1 <= 0 or self.hp2 <= 0:
+            return await self.finish(i)
 
-        self.log.append(f"💥 ULTI {dmg_p} dégâts | Ennemi {dmg_e}")
+        await i.response.edit_message(embed=self.embed(), view=self)
 
-        if self.hp_p <= 0 or self.hp_e <= 0:
-            return await self.end(interaction)
+# ---------------- MENU ---------------- #
 
-        await interaction.response.edit_message(embed=self.get_embed(), view=self)
+class MenuView(discord.ui.View):
+    def __init__(self):
+        super().__init__(timeout=None)
+
+    @discord.ui.button(label="⚔️ PvE", style=discord.ButtonStyle.primary)
+    async def pve(self, i, _):
+        view = FightView(i.user, i.client.user, load(), ai=True)
+        await i.response.send_message(embed=view.embed(), view=view)
+
+    @discord.ui.button(label="⚔️ PvP", style=discord.ButtonStyle.danger)
+    async def pvp(self, i, _):
+        queue.append(i.user)
+        if len(queue) >= 2:
+            p1,p2 = queue.pop(0),queue.pop(0)
+            view = FightView(p1,p2,load())
+            await i.channel.send(embed=view.embed(), view=view)
+        else:
+            await i.response.send_message("⏳ En attente...", ephemeral=True)
+
+    @discord.ui.button(label="🛒 Shop", style=discord.ButtonStyle.secondary)
+    async def shop(self, i, _):
+        embed = discord.Embed(title="Shop")
+        for k,v in SHOP.items():
+            embed.add_field(name=k, value=f"{v} coins")
+        await i.response.send_message(embed=embed, ephemeral=True)
 
 # ---------------- COG ---------------- #
 
@@ -145,71 +184,23 @@ class BSGame(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
+    @app_commands.command(name="bs_menu")
+    async def menu(self, i: discord.Interaction):
+        await i.response.send_message("🎮 Menu", view=MenuView())
+
     @app_commands.command(name="bs_profile")
     async def profile(self, i: discord.Interaction):
+        p = get_player(load(), str(i.user.id))
+        await i.response.send_message(
+            f"🏆 {p['trophies']} | 🪙 {p['coins']} | 🎮 {p['selected']}"
+        )
+
+    @app_commands.command(name="bs_leaderboard")
+    async def leaderboard(self, i: discord.Interaction):
         data = load()
-        p = get_player(data, str(i.user.id))
-        save(data)
-
-        embed = discord.Embed(title=f"👤 {i.user.name}", color=0xf1c40f)
-        embed.add_field(name="🏆 Trophées", value=p["trophies"])
-        embed.add_field(name="🪙 Pièces", value=p["coins"])
-        embed.add_field(name="🎮 Brawler", value=p["selected"])
-        embed.add_field(name="📦 Collection", value=", ".join(p["brawlers"]))
-
-        await i.response.send_message(embed=embed)
-
-    @app_commands.command(name="bs_open")
-    async def open_box(self, i: discord.Interaction):
-        data = load()
-        p = get_player(data, str(i.user.id))
-
-        reward = random.choices(["coins", "brawler"], weights=[70, 30])[0]
-
-        if reward == "coins":
-            amount = random.randint(20, 100)
-            p["coins"] += amount
-            msg = f"🪙 +{amount} pièces"
-        else:
-            new = random.choice(ALL_BRAWLERS)
-            if new in p["brawlers"]:
-                p["coins"] += 50
-                msg = "🔁 Doublon → +50 pièces"
-            else:
-                p["brawlers"].append(new)
-                msg = f"🎉 Nouveau brawler : {new}"
-
-        save(data)
-        await i.response.send_message(msg)
-
-    @app_commands.command(name="bs_select")
-    async def select(self, i: discord.Interaction, brawler: str):
-        data = load()
-        p = get_player(data, str(i.user.id))
-
-        if brawler not in p["brawlers"]:
-            return await i.response.send_message("❌ Tu ne l'as pas")
-
-        p["selected"] = brawler
-        save(data)
-
-        await i.response.send_message(f"✅ {brawler} sélectionné")
-
-    @app_commands.command(name="bs_fight")
-    async def fight(self, i: discord.Interaction):
-        data = load()
-        p = get_player(data, str(i.user.id))
-
-        player = p["selected"]
-        enemy = random.choice(ALL_BRAWLERS)
-
-        ps = BRAWLERS[player]
-        es = BRAWLERS[enemy]
-
-        view = FightView(i.user.id, player, enemy, ps, es, data)
-        embed = view.get_embed()
-
-        await i.response.send_message(embed=embed, view=view)
+        top = sorted(data.items(), key=lambda x:x[1]["trophies"], reverse=True)[:10]
+        txt = "\n".join([f"<@{u}> {p['trophies']}" for u,p in top])
+        await i.response.send_message(f"🏆\n{txt}")
 
 # ---------------- SETUP ---------------- #
 

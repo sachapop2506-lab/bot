@@ -291,7 +291,12 @@ class MainView(discord.ui.View):
         p = get_player(data, str(self.user.id))
 
         multi = get_multiplier(p["trophies"])
-        gain = int(random.randint(5,15) * multi)
+        b = p["selected"]
+rarity = BRAWLERS[b]["rarity"]
+
+rarity_multi = RARITY_MULTIPLIER.get(rarity, 1)
+
+gain = int(random.randint(5, 15) * multi * rarity_multi)
 
         p["coins"] += gain
         p["trophies"] += 1

@@ -134,20 +134,25 @@ class GiveawayView(discord.ui.View):
         super().__init__(timeout=None)
 
     @discord.ui.button(label="🎉 Join", style=discord.ButtonStyle.green, custom_id="gw_join")
-    async def join(self, i: discord.Interaction, _):
-        data = load()
-        gw = data.get(str(i.message.id))
+async def join(self, i: discord.Interaction, _):
+    data = load()
+    gw = data.get(str(i.message.id))
 
-        uid = str(i.user.id)
+    # ❌ giveaway terminé
+    if gw["ended"]:
+        return await i.response.send_message("⛔ Giveaway terminé", ephemeral=True)
 
-        if uid in gw["participants"]:
-            gw["participants"].remove(uid)
-        else:
-            gw["participants"].append(uid)
+    uid = str(i.user.id)
 
-        save(data)
-        await update_embed(i.client, gw, i.message)
-        await i.response.send_message("OK", ephemeral=True)
+    if uid in gw["participants"]:
+        gw["participants"].remove(uid)
+    else:
+        gw["participants"].append(uid)
+
+    save(data)
+
+    await update_embed(i.client, gw, i.message)
+    await i.response.send_message("Participation mise à jour", ephemeral=True)
 
     @discord.ui.button(label="⚙️ Manage", style=discord.ButtonStyle.gray, custom_id="gw_manage")
     async def manage(self, i: discord.Interaction, _):
@@ -237,17 +242,27 @@ async def process_winner(bot, gw, data):
 
     winners = draw_winners(bot, gw)
 
+    # ❌ aucun participant
     if not winners:
-        await ch.send("❌ Aucun participant")
+        await ch.send("❌ Aucun participant → giveaway annulé")
+
+        gw["ended"] = True
+        gw["cancelled"] = True
+        save(data)
         return
 
     gw["winner_ids"] = winners
     gw["claimed"] = []
-    gw["claim_deadline"] = (datetime.now(tz=timezone.utc) + timedelta(seconds=gw["claim_time"])).timestamp()
+
+    gw["claim_deadline"] = (
+        datetime.now(tz=timezone.utc) + timedelta(seconds=gw["claim_time"])
+    ).timestamp()
 
     save(data)
-    await send_winner_ui(bot, gw, winners, data)
 
+    await send_winner_ui(bot, gw, winners, data)
+    msg = await ch.fetch_message(int(gw["message_id"]))
+await msg.edit(view=None)
 # ---------------- LOOP ---------------- #
 
 class Giveaway(commands.Cog):
@@ -269,7 +284,10 @@ class Giveaway(commands.Cog):
             elif gw["ended"] and now >= gw["claim_deadline"]:
                 if set(gw["winner_ids"]) - set(gw["claimed"]):
                     await process_winner(self.bot, gw, data)
+for gw in data.values():
 
+    if gw.get("cancelled"):
+        continue
     # ---------------- COMMANDES ---------------- #
 
     @app_commands.command(name="giveaway_create")

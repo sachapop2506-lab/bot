@@ -3,7 +3,7 @@ from discord.ext import commands
 from discord import app_commands
 import json, os, random
 
-FILE = "bs_full.json"
+FILE = "bs_game.json"
 
 # ---------- DATA ---------- #
 
@@ -25,7 +25,7 @@ def get_player(data, uid):
             "boxes": 5,
             "selected": "Shelly",
             "brawlers": {
-                "Shelly": {"level":1,"pp":0}
+                "Shelly": {"level":1}
             }
         }
     return data[uid]
@@ -70,7 +70,7 @@ def random_brawler(rarity):
 def open_box(p):
     rewards = []
 
-    coins = random.randint(20, 80)
+    coins = random.randint(30, 100)
     p["coins"] += coins
     rewards.append(f"🪙 {coins} coins")
 
@@ -78,16 +78,16 @@ def open_box(p):
     brawler = random_brawler(rarity)
 
     if brawler not in p["brawlers"]:
-        p["brawlers"][brawler] = {"level":1,"pp":0}
+        p["brawlers"][brawler] = {"level":1}
         rewards.append(f"✨ Nouveau {brawler} ({rarity})")
     else:
-        pp = random.randint(10, 25)
-        p["brawlers"][brawler]["pp"] += pp
-        rewards.append(f"⚡ {brawler} +{pp} PP")
+        bonus = random.randint(20, 60)
+        p["coins"] += bonus
+        rewards.append(f"💰 Bonus {bonus} coins (doublon)")
 
     return rewards
 
-# ---------- SELECT MENU ---------- #
+# ---------- SELECT ---------- #
 
 class BrawlerSelect(discord.ui.Select):
     def __init__(self, player):
@@ -97,7 +97,7 @@ class BrawlerSelect(discord.ui.Select):
         ]
         super().__init__(placeholder="Choisir un brawler", options=options)
 
-    async def callback(self, interaction):
+    async def callback(self, interaction: discord.Interaction):
         data = load()
         p = get_player(data, str(interaction.user.id))
 
@@ -165,27 +165,27 @@ class MainView(discord.ui.View):
         b = p["selected"]
         info = p["brawlers"][b]
 
-        cost = 50 * info["level"]
+        cost = int(100 * (1.5 ** (info["level"] - 1)))
 
-        if info["pp"] < cost:
+        if p["coins"] < cost:
             return await i.response.send_message(
-                f"❌ Pas assez de PP ({cost})",
+                f"❌ Pas assez de coins ({cost})",
                 ephemeral=True
             )
 
-        info["pp"] -= cost
+        p["coins"] -= cost
         info["level"] += 1
 
         save(data)
 
         await i.response.send_message(
-            f"⬆️ {b} level {info['level']}",
+            f"⬆️ {b} level {info['level']} (💸 -{cost})",
             ephemeral=True
         )
 
 # ---------- COG ---------- #
 
-class BSFull(commands.Cog):
+class BSGame(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
@@ -197,10 +197,14 @@ class BSFull(commands.Cog):
         view = MainView(i.user)
         view.add_item(BrawlerSelect(p))
 
+        b = p["selected"]
+        lvl = p["brawlers"][b]["level"]
+
         txt = f"""
 🏆 {p['trophies']} | 🪙 {p['coins']} | 🎁 {p['boxes']}
-🎯 Actif: {p['selected']}
+🎯 Actif: {b} (lvl {lvl})
 💰 Multiplicateur: x{get_multiplier(p['trophies']):.1f}
+⬆️ Upgrade: {int(100 * (1.5 ** (lvl - 1)))} coins
 """
 
         await i.response.send_message(txt, view=view, ephemeral=True)
@@ -221,4 +225,4 @@ class BSFull(commands.Cog):
 # ---------- SETUP ---------- #
 
 async def setup(bot):
-    await bot.add_cog(BSFull(bot))
+    await bot.add_cog(BSGame(bot))

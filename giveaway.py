@@ -30,21 +30,16 @@ def parse(s: str):
 
 async def suspense(channel):
     msg = await channel.send("🎲 Tirage...")
-    for step in ["🎲 .", "🎲 ..", "🎲 ..."]:
-        await asyncio.sleep(0.6)
+    for step in ["🎲 .","🎲 ..","🎲 ..."]:
+        await asyncio.sleep(0.5)
         await msg.edit(content=step)
-    return msg
 
 # ---------------- EMBED ---------------- #
 
 async def update_embed(bot, gw, msg):
     guild = bot.get_guild(int(gw["guild_id"]))
 
-    members = []
-    for uid in gw["participants"]:
-        m = guild.get_member(int(uid))
-        if m:
-            members.append(m)
+    members = [guild.get_member(int(uid)) for uid in gw["participants"] if guild.get_member(int(uid))]
 
     e = discord.Embed(
         title=f"🎁 {gw['prize']}",
@@ -56,7 +51,7 @@ async def update_embed(bot, gw, msg):
     e.add_field(name="🏆 Gagnants", value=f"**{gw['winners']}**", inline=True)
 
     if gw.get("bonus_role"):
-        e.add_field(name="🎭 Bonus", value=f"<@&{gw['bonus_role']}>", inline=False)
+        e.add_field(name="🎭 Bonus", value=f"<@&{gw['bonus_role']}> (x2 chances)", inline=False)
 
     if not gw["ended"]:
         e.add_field(name="⏳ Fin", value=f"<t:{int(gw['end_time'])}:R>", inline=False)
@@ -74,21 +69,18 @@ async def send_winner_ui(bot, gw, winners, data):
 
     mentions = " ".join(f"<@{w}>" for w in winners)
 
-    # 📣 ping auto
-    await ch.send(f"🎉 {mentions} vous avez gagné ! Venez claim !")
+    await ch.send(f"🎉 {mentions} vous avez gagné !")
 
     embed = discord.Embed(
-        title="🏆 Nouveau(x) gagnant(s)",
-        description=f"{mentions}",
+        title="🏆 Gagnant(s)",
+        description=mentions,
         color=0x00ff00
     )
 
     embed.add_field(
-        name="⏳ Temps pour claim",
-        value=f"⏱️ <t:{ts}:F>\n⌛ <t:{ts}:R>"
+        name="⏳ Claim",
+        value=f"<t:{ts}:F>\n<t:{ts}:R>"
     )
-
-    embed.set_footer(text="⚠️ Non réclamé = reroll automatique")
 
     msg = await ch.send(embed=embed, view=ClaimView())
 
@@ -105,8 +97,8 @@ class ClaimView(discord.ui.View):
     @discord.ui.button(label="🎁 Claim", style=discord.ButtonStyle.green, custom_id="gw_claim")
     async def claim(self, i: discord.Interaction, _):
         data = load()
-        gw = None
 
+        gw = None
         for g in data.values():
             if g.get("last_winner_message") == str(i.message.id):
                 gw = g
@@ -120,24 +112,20 @@ class ClaimView(discord.ui.View):
         if uid not in gw["winner_ids"]:
             return await i.response.send_message("Pas gagnant", ephemeral=True)
 
-        if datetime.now(tz=timezone.utc).timestamp() > gw["claim_deadline"]:
-            return await i.response.send_message("Temps expiré", ephemeral=True)
-
         if uid in gw["claimed"]:
             return await i.response.send_message("Déjà claim", ephemeral=True)
 
         gw["claimed"].append(uid)
         save(data)
 
-        # 🎉 message public
         embed = discord.Embed(
             title="🎉 GG !",
             description=f"Bravo <@{uid}> tu as gagné **{gw['prize']}** !",
             color=0x2ecc71
         )
-        await i.channel.send(embed=embed)
 
-        await i.response.send_message("🎁 Récompense récupérée !", ephemeral=True)
+        await i.channel.send(embed=embed)
+        await i.response.send_message("Claim réussi", ephemeral=True)
 
 # ---------------- VIEW ---------------- #
 
@@ -158,9 +146,22 @@ class GiveawayView(discord.ui.View):
             gw["participants"].append(uid)
 
         save(data)
-
         await update_embed(i.client, gw, i.message)
-        await i.response.send_message("Participation mise à jour", ephemeral=True)
+        await i.response.send_message("OK", ephemeral=True)
+
+    @discord.ui.button(label="⚙️ Manage", style=discord.ButtonStyle.gray, custom_id="gw_manage")
+    async def manage(self, i: discord.Interaction, _):
+        data = load()
+        gw = data.get(str(i.message.id))
+
+        if str(i.user.id) != gw["host_id"]:
+            return await i.response.send_message("No permission", ephemeral=True)
+
+        gw["_guild"] = i.guild
+        view = ManageView(gw)
+        view.build()
+
+        await i.response.send_message("Manage", view=view, ephemeral=True)
 
 # ---------------- MANAGE ---------------- #
 
@@ -174,25 +175,15 @@ class ManageView(discord.ui.View):
         self.clear_items()
         guild = self.gw["_guild"]
 
-        start = self.page * 25
-        end = start + 25
-        page = self.gw["participants"][start:end]
+        page = self.gw["participants"][self.page*25:(self.page+1)*25]
 
         options = []
         for uid in page:
             m = guild.get_member(int(uid))
             if m:
-                options.append(discord.SelectOption(
-                    label=m.display_name[:100],
-                    description=f"{m.name}#{m.discriminator}"[:100],
-                    value=uid
-                ))
+                options.append(discord.SelectOption(label=m.display_name, value=uid))
             else:
-                options.append(discord.SelectOption(
-                    label=f"User {uid}",
-                    description="Absent",
-                    value=uid
-                ))
+                options.append(discord.SelectOption(label=f"User {uid}", value=uid))
 
         self.add_item(RemoveSelect(self.gw, options))
 
@@ -207,13 +198,19 @@ class RemoveSelect(discord.ui.Select):
 
     async def callback(self, i):
         data = load()
-        gw = data[str(i.message.id)]
+        gw = data[self.gw["message_id"]]
 
         uid = self.values[0]
+
         if uid in gw["participants"]:
             gw["participants"].remove(uid)
 
         save(data)
+
+        ch = i.client.get_channel(int(gw["channel_id"]))
+        msg = await ch.fetch_message(int(gw["message_id"]))
+        await update_embed(i.client, gw, msg)
+
         await i.response.send_message("Retiré", ephemeral=True)
 
 # ---------------- LOGIC ---------------- #
@@ -239,19 +236,16 @@ async def process_winner(bot, gw, data):
     await suspense(ch)
 
     winners = draw_winners(bot, gw)
+
     if not winners:
         await ch.send("❌ Aucun participant")
         return
 
     gw["winner_ids"] = winners
     gw["claimed"] = []
-
-    gw["claim_deadline"] = (
-        datetime.now(tz=timezone.utc) + timedelta(seconds=gw["claim_time"])
-    ).timestamp()
+    gw["claim_deadline"] = (datetime.now(tz=timezone.utc) + timedelta(seconds=gw["claim_time"])).timestamp()
 
     save(data)
-
     await send_winner_ui(bot, gw, winners, data)
 
 # ---------------- LOOP ---------------- #
@@ -266,23 +260,12 @@ class Giveaway(commands.Cog):
         data = load()
         now = datetime.now(tz=timezone.utc).timestamp()
 
-        for k, gw in data.items():
+        for gw in data.values():
 
-            # fin initiale
             if not gw["ended"] and now >= gw["end_time"]:
                 gw["ended"] = True
                 await process_winner(self.bot, gw, data)
 
-            # rappel avant fin (30s)
-            if gw.get("ended") and not gw.get("reminder_sent"):
-                if gw["claim_deadline"] - now <= 30:
-                    ch = self.bot.get_channel(int(gw["channel_id"]))
-                    mentions = " ".join(f"<@{w}>" for w in gw["winner_ids"])
-                    await ch.send(f"⏰ {mentions} plus que 30 secondes pour claim !")
-                    gw["reminder_sent"] = True
-                    save(data)
-
-            # reroll auto
             elif gw["ended"] and now >= gw["claim_deadline"]:
                 if set(gw["winner_ids"]) - set(gw["claimed"]):
                     await process_winner(self.bot, gw, data)
@@ -290,7 +273,15 @@ class Giveaway(commands.Cog):
     # ---------------- COMMANDES ---------------- #
 
     @app_commands.command(name="giveaway_create")
-    async def create(self, i: discord.Interaction, prize: str, duration: str, winners: int, claim: str):
+    async def create(
+        self,
+        i: discord.Interaction,
+        prize: str,
+        duration: str,
+        winners: int,
+        claim: str,
+        role_bonus: discord.Role = None
+    ):
         seconds = parse(duration)
         claim_s = parse(claim)
 
@@ -308,6 +299,7 @@ class Giveaway(commands.Cog):
             "prize": prize,
             "participants": [],
             "winners": winners,
+            "bonus_role": str(role_bonus.id) if role_bonus else None,
             "ended": False,
             "end_time": (datetime.now(tz=timezone.utc) + timedelta(seconds=seconds)).timestamp(),
             "claim_time": claim_s
@@ -316,7 +308,7 @@ class Giveaway(commands.Cog):
         save(data)
         await update_embed(self.bot, data[str(msg.id)], msg)
 
-        await i.response.send_message("✅ Giveaway créé", ephemeral=True)
+        await i.response.send_message("Giveaway créé", ephemeral=True)
 
 # ---------------- SETUP ---------------- #
 

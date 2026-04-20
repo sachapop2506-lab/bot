@@ -142,9 +142,12 @@ def open_box(p):
 class BrawlerSelect(discord.ui.Select):
     def __init__(self, player):
         options = [
-            discord.SelectOption(label=b, description=f"lvl {player['brawlers'][b]['level']}")
-            for b in player["brawlers"]
-        ]
+    discord.SelectOption(
+        label=str(b)[:100],
+        description=f"lvl {player['brawlers'][b]['level']}"[:100]
+    )
+    for b in player["brawlers"]
+][:25]
         super().__init__(placeholder="Choisir un brawler", options=options)
 
     async def callback(self, interaction: discord.Interaction):

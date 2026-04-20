@@ -267,6 +267,7 @@ class MainView(discord.ui.View):
     async def interaction_check(self, i: discord.Interaction):
         return i.user.id == self.user.id
 
+    # ---------- CLICK ---------- #
     @discord.ui.button(label="👊 Click", style=discord.ButtonStyle.primary)
     async def click(self, i: discord.Interaction, _):
         data = load()
@@ -313,6 +314,60 @@ class MainView(discord.ui.View):
 
         await i.response.edit_message(
             embed=create_embed(p, f"\n👊 +{gain} coins{bonus}"),
+            view=view
+        )
+
+    # ---------- BOX ---------- #
+    @discord.ui.button(label="🎁 Box", style=discord.ButtonStyle.success)
+    async def box(self, i: discord.Interaction, _):
+        data = load()
+        p = get_player(data, str(self.user.id))
+
+        if p["boxes"] <= 0:
+            return await i.response.send_message("❌ Pas de box", ephemeral=True)
+
+        p["boxes"] -= 1
+        rewards = open_box(p)
+        save(data)
+
+        view = MainView(self.user)
+        view.add_item(BrawlerSelect(p))
+
+        await i.response.edit_message(
+            embed=create_embed(p, "\n" + "\n".join(rewards)),
+            view=view
+        )
+
+    # ---------- UPGRADE (AJOUTÉ) ---------- #
+    @discord.ui.button(label="⬆️ Upgrade", style=discord.ButtonStyle.secondary)
+    async def upgrade(self, i: discord.Interaction, _):
+        data = load()
+        p = get_player(data, str(self.user.id))
+
+        b = p["selected"]
+        lvl = p["brawlers"][b]["level"]
+
+        if lvl >= 11:
+            return await i.response.send_message("❌ Niveau max atteint", ephemeral=True)
+
+        cost = int(100 * (1.5 ** (lvl - 1)))
+
+        if p["coins"] < cost:
+            return await i.response.send_message(
+                f"❌ Pas assez de coins ({cost})",
+                ephemeral=True
+            )
+
+        p["coins"] -= cost
+        p["brawlers"][b]["level"] += 1
+
+        save(data)
+
+        view = MainView(self.user)
+        view.add_item(BrawlerSelect(p))
+
+        await i.response.edit_message(
+            embed=create_embed(p, f"\n⬆️ {b} level {p['brawlers'][b]['level']}"),
             view=view
         )
 

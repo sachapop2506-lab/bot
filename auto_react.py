@@ -27,6 +27,7 @@ cooldowns = {}
 class AutoReact(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
+        self.bot.tree.add_command(self.autoreact)  # ✅ AJOUT ICI
 
     # ─── GROUPE SLASH ─────────────────────────
 
@@ -120,4 +121,3 @@ class AutoReact(commands.Cog):
 # ✅ FIX ICI (IMPORTANT)
 async def setup(bot):
     await bot.add_cog(AutoReact(bot))
-     bot.tree.add_command(cog.autoreact)

@@ -121,3 +121,7 @@ class AutoReact(commands.GroupCog, name="autoreact"):
 
 async def setup(bot):
     await bot.add_cog(AutoReact(bot))
+
+@app_commands.command(name="testauto")
+async def testauto(self, interaction: discord.Interaction):
+    await interaction.response.send_message("OK")

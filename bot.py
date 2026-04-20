@@ -27,7 +27,7 @@ async def on_ready():
     await bot.load_extension("levels")
     await bot.load_extension("logs")
     await bot.load_extension("brawlstars")
-    await bot.load_extension("fun")
+    await bot.load_extension("auto-react")
 
     # Sync commandes
     synced = await bot.tree.sync()

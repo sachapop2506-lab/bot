@@ -16,6 +16,9 @@ bot = commands.Bot(command_prefix="!", intents=intents)
 
 @bot.event
 async def on_ready():
+    print(f"Logged in as {bot.user} (ID: {bot.user.id})")
+
+    # Charger les extensions
     await bot.load_extension("giveaway")
     await bot.load_extension("ticket")
     await bot.load_extension("moderation")
@@ -25,9 +28,11 @@ async def on_ready():
     await bot.load_extension("logs")
     await bot.load_extension("brawlstars")
     await bot.load_extension("fun")
-    await bot.tree.sync()
-    print(f"Logged in as {bot.user} (ID: {bot.user.id})")
-    print("Slash commands synced.")
+
+    # Sync commandes
+    synced = await bot.tree.sync()
+    print(f"{len(synced)} commandes slash synchronisées")
+
     print("------")
 
 
@@ -99,10 +104,7 @@ async def on_command_error(ctx, error):
 
 
 
-@bot.event
-async def on_ready():
-    await bot.tree.sync()
-    print("Slash commands sync")
+
         
 
 

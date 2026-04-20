@@ -283,25 +283,36 @@ class MainView(discord.ui.View):
 
 # ---------- COG ---------- #
 
-class BSGame(commands.Cog):
-    def __init__(self, bot):
-        self.bot = bot
-
-    @app_commands.command(name="bs")
-    async def bs(self, i: discord.Interaction):
+@app_commands.command(name="bs")
+async def bs(self, i: discord.Interaction):
+    try:
         await i.response.defer(ephemeral=True)
 
         data = load()
+        print("1 OK")
+
         p = get_player(data, str(i.user.id))
+        print("2 OK")
+
+        embed = create_embed(p)
+        print("3 OK")
 
         view = MainView(i.user)
+        print("4 OK")
+
         view.add_item(BrawlerSelect(p))
+        print("5 OK")
 
         await i.followup.send(
-            embed=create_embed(p),
+            embed=embed,
             view=view,
             ephemeral=True
         )
+        print("6 OK")
+
+    except Exception as e:
+        print("ERREUR BS :", e)
+        await i.followup.send(f"❌ {e}", ephemeral=True)
 
 # ---------- SETUP ---------- #
 

@@ -1,4 +1,3 @@
-print("AUTO_REACT LOADED")
 import discord
 from discord import app_commands
 from discord.ext import commands
@@ -21,26 +20,20 @@ def save_config(data):
 
 cooldowns = {}
 
-# ✅ GroupCog correct
 class AutoReact(commands.GroupCog, name="autoreact"):
     def __init__(self, bot):
         self.bot = bot
 
+    # 🔥 FIX IMPORTANT
+    async def cog_load(self):
+        self.bot.tree.add_command(self.__class__)
+
     # ─── COMMANDES ─────────────────────────
 
-    @app_commands.command(name="ajouter", description="Ajouter auto-react")
-    async def ajouter(
-        self,
-        interaction: discord.Interaction,
-        salon: discord.TextChannel,
-        emojis: str = None,
-        message: str = None
-    ):
+    @app_commands.command(name="ajouter")
+    async def ajouter(self, interaction: discord.Interaction, salon: discord.TextChannel, emojis: str = None, message: str = None):
         if not emojis and not message:
-            await interaction.response.send_message(
-                "❌ Mets un emoji ou un message",
-                ephemeral=True
-            )
+            await interaction.response.send_message("❌ Mets un emoji ou un message", ephemeral=True)
             return
 
         config = load_config()
@@ -57,7 +50,7 @@ class AutoReact(commands.GroupCog, name="autoreact"):
 
         await interaction.response.send_message("✅ Ajouté", ephemeral=True)
 
-    @app_commands.command(name="retirer", description="Retirer auto-react")
+    @app_commands.command(name="retirer")
     async def retirer(self, interaction: discord.Interaction, salon: discord.TextChannel):
         config = load_config()
         ar = config.get(str(interaction.guild_id), {}).get("autoreact", {})
@@ -71,7 +64,7 @@ class AutoReact(commands.GroupCog, name="autoreact"):
 
         await interaction.response.send_message("✅ Retiré", ephemeral=True)
 
-    @app_commands.command(name="liste", description="Liste auto-react")
+    @app_commands.command(name="liste")
     async def liste(self, interaction: discord.Interaction):
         config = load_config()
         ar = config.get(str(interaction.guild_id), {}).get("autoreact", {})
@@ -84,10 +77,7 @@ class AutoReact(commands.GroupCog, name="autoreact"):
         for channel_id, data in ar.items():
             channel = interaction.guild.get_channel(int(channel_id))
             name = channel.mention if channel else f"Salon supprimé ({channel_id})"
-            emojis = " ".join(data.get("emojis", [])) or "Aucun"
-            message = data.get("message") or "Aucun"
-
-            msg += f"{name}\n→ Emojis : {emojis}\n→ Message : {message}\n\n"
+            msg += f"{name} → {' '.join(data.get('emojis', []))}\n"
 
         await interaction.response.send_message(msg)
 
@@ -113,19 +103,15 @@ class AutoReact(commands.GroupCog, name="autoreact"):
 
         cooldowns[key] = now
 
-        # emojis
         for emoji in channel_config.get("emojis", []):
             try:
                 await message.add_reaction(emoji)
             except:
                 pass
 
-        # message
         if channel_config.get("message"):
             msg = channel_config["message"].replace("{user}", message.author.mention)
             await message.channel.send(msg)
 
-
-# ✅ setup correct
 async def setup(bot):
     await bot.add_cog(AutoReact(bot))

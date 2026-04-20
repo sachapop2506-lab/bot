@@ -1,121 +1,120 @@
-import os
 import discord
+from discord import app_commands
 from discord.ext import commands
-from dotenv import load_dotenv
+import json
+import os
+import time
+from utils import data_path
 
-load_dotenv()
-
-TOKEN = os.getenv("DISCORD_BOT_TOKEN")
-
-intents = discord.Intents.default()
-intents.message_content = True
-intents.members = True
-
-bot = commands.Bot(command_prefix="!", intents=intents)
+FUN_CONFIG_FILE = data_path("fun_config.json")
 
 
-@bot.event
-async def main():
-    async with bot:
-        await bot.load_extension("giveaway")
-        await bot.load_extension("ticket")
-        await bot.load_extension("moderation")
-        await bot.load_extension("welcome")
-        await bot.load_extension("invites")
-        await bot.load_extension("levels")
-        await bot.load_extension("logs")
-        await bot.load_extension("brawlstars")
-        await bot.load_extension("auto_react")
-        await bot.load_extension("fun")
-
-        await bot.start(TOKEN)
-
-import asyncio
-
-    # Sync commandes
-@bot.event
-async def on_ready():
-    synced = await bot.tree.sync()
-    print(f"{len(synced)} commandes slash synchronisées")
-    print("------")
+def load_config():
+    if os.path.exists(FUN_CONFIG_FILE):
+        with open(FUN_CONFIG_FILE, "r") as f:
+            return json.load(f)
+    return {}
 
 
-@bot.command(name="hello")
-async def hello(ctx):
-    await ctx.send(f"Hey {ctx.author.mention}! 👋")
+def save_config(data):
+    with open(FUN_CONFIG_FILE, "w") as f:
+        json.dump(data, f, indent=2)
 
 
-@bot.command(name="ping")
-async def ping(ctx):
-    latency = round(bot.latency * 1000)
-    await ctx.send(f"Pong! 🏓 Latency: {latency}ms")
+cooldowns = {}
 
 
-@bot.command(name="info")
-async def info(ctx):
-    embed = discord.Embed(
-        title="Bot Info",
-        description="A simple Discord bot built with discord.py",
-        color=discord.Color.blurple(),
+class AutoReact(commands.Cog):
+    def __init__(self, bot):
+        self.bot = bot
+
+    # ─── GROUPE SLASH ─────────────────────────
+
+    autoreact = app_commands.Group(
+        name="autoreact",
+        description="Réactions automatiques"
     )
-    embed.add_field(name="Server", value=ctx.guild.name, inline=True)
-    embed.add_field(name="Members", value=ctx.guild.member_count, inline=True)
-    embed.set_footer(text=f"Requested by {ctx.author}")
-    await ctx.send(embed=embed)
 
+    @autoreact.command(name="ajouter")
+    async def ajouter(self, interaction: discord.Interaction, salon: discord.TextChannel, emojis: str = None, message: str = None):
+        if not emojis and not message:
+            await interaction.response.send_message("❌ Mets un emoji ou un message", ephemeral=True)
+            return
 
-@bot.command(name="roll")
-async def roll(ctx, sides: int = 6):
-    import random
-    result = random.randint(1, sides)
-    await ctx.send(f"🎲 Rolled a d{sides}: **{result}**")
+        config = load_config()
+        guild = config.setdefault(str(interaction.guild_id), {})
+        ar = guild.setdefault("autoreact", {})
 
+        ar[str(salon.id)] = {
+            "emojis": emojis.split() if emojis else [],
+            "message": message,
+            "cooldown": 5
+        }
 
-@bot.command(name="say")
-@commands.has_permissions(manage_messages=True)
-async def say(ctx, *, message: str):
-    await ctx.message.delete()
-    await ctx.send(message)
+        save_config(config)
+        await interaction.response.send_message("✅ Ajouté", ephemeral=True)
 
+    @autoreact.command(name="retirer")
+    async def retirer(self, interaction: discord.Interaction, salon: discord.TextChannel):
+        config = load_config()
+        ar = config.get(str(interaction.guild_id), {}).get("autoreact", {})
 
-@bot.command(name="clear")
-@commands.has_permissions(manage_messages=True)
-async def clear(ctx, amount: int = 5):
-    await ctx.channel.purge(limit=amount + 1)
-    msg = await ctx.send(f"🧹 Cleared {amount} messages.")
-    await msg.delete(delay=3)
+        if str(salon.id) not in ar:
+            await interaction.response.send_message("❌ Rien à retirer", ephemeral=True)
+            return
 
+        del ar[str(salon.id)]
+        save_config(config)
+        await interaction.response.send_message("✅ Retiré", ephemeral=True)
 
-@bot.command(name="sync")
-@commands.has_permissions(administrator=True)
-async def sync(ctx):
-    bot.tree.clear_commands(guild=ctx.guild)
-    await bot.tree.sync(guild=ctx.guild)
-    synced = await bot.tree.sync()
-    await ctx.send(f"✅ {len(synced)} commandes slash synchronisées !")
+    @autoreact.command(name="liste")
+    async def liste(self, interaction: discord.Interaction):
+        config = load_config()
+        ar = config.get(str(interaction.guild_id), {}).get("autoreact", {})
 
+        if not ar:
+            await interaction.response.send_message("❌ Aucun config", ephemeral=True)
+            return
 
-@bot.event
-async def on_command_error(ctx, error):
-    if isinstance(error, commands.MissingPermissions):
-        await ctx.send("❌ You don't have permission to use that command.")
-    elif isinstance(error, commands.MissingRequiredArgument):
-        await ctx.send(f"❌ Missing argument: {error.param.name}")
-    elif isinstance(error, commands.BadArgument):
-        await ctx.send("❌ Invalid argument provided.")
-    else:
-        await ctx.send(f"❌ An error occurred: {error}")
+        msg = ""
+        for channel_id, data in ar.items():
+            channel = interaction.guild.get_channel(int(channel_id))
+            name = channel.mention if channel else channel_id
+            msg += f"{name} → {' '.join(data.get('emojis', []))}\n"
 
+        await interaction.response.send_message(msg)
 
+    # ─── LISTENER ─────────────────────────
 
+    @commands.Cog.listener()
+    async def on_message(self, message: discord.Message):
+        if message.author.bot or not message.guild:
+            return
 
-        
+        config = load_config()
+        guild_config = config.get(str(message.guild.id), {})
+        channel_config = guild_config.get("autoreact", {}).get(str(message.channel.id))
 
+        if not channel_config:
+            return
 
-if __name__ == "__main__":
-    if not TOKEN:
-        raise ValueError("DISCORD_BOT_TOKEN environment variable is not set.")
-    bot.run(TOKEN)
+        key = f"{message.guild.id}-{message.channel.id}"
+        now = time.time()
+
+        if key in cooldowns and now - cooldowns[key] < channel_config.get("cooldown", 5):
+            return
+
+        cooldowns[key] = now
+
+        for emoji in channel_config.get("emojis", []):
+            try:
+                await message.add_reaction(emoji)
+            except:
+                pass
+
+        if channel_config.get("message"):
+            msg = channel_config["message"].replace("{user}", message.author.mention)
+            await message.channel.send(msg)
 
 
 # ✅ FIX ICI (IMPORTANT)

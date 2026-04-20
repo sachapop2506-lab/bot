@@ -96,6 +96,13 @@ async def on_command_error(ctx, error):
         await ctx.send("❌ Invalid argument provided.")
     else:
         await ctx.send(f"❌ An error occurred: {error}")
+
+
+
+@bot.event
+async def on_ready():
+    await bot.tree.sync()
+    print("Slash commands sync")
         
 
 

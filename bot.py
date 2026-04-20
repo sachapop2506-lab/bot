@@ -107,10 +107,13 @@ async def clear(ctx, amount: int = 5):
 @bot.command(name="sync")
 @commands.has_permissions(administrator=True)
 async def sync(ctx):
-    bot.tree.clear_commands(guild=ctx.guild)
-    await bot.tree.sync(guild=ctx.guild)
-    synced = await bot.tree.sync()
-    await ctx.send(f"✅ {len(synced)} commandes slash synchronisées !")
+    try:
+        bot.tree.clear_commands(guild=ctx.guild)
+        synced = await bot.tree.sync(guild=ctx.guild)
+
+        await ctx.send(f"✅ {len(synced)} commandes synchronisées sur ce serveur !")
+    except Exception as e:
+        await ctx.send(f"❌ Erreur : {e}")
 
 
 @bot.event

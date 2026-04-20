@@ -3,8 +3,9 @@ from discord.ext import commands
 from discord import app_commands
 import json, os, random
 
-FILE = "bs_game.json"
+FILE = "/data/bs_game.json"
 
+os.makedirs("/data", exist_ok=True)
 # ---------- DATA ---------- #
 
 def load():

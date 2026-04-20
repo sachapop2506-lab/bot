@@ -2,9 +2,9 @@ import os
 import discord
 from discord.ext import commands
 from dotenv import load_dotenv
+import asyncio
 
 load_dotenv()
-
 TOKEN = os.getenv("DISCORD_BOT_TOKEN")
 
 intents = discord.Intents.default()
@@ -14,7 +14,8 @@ intents.members = True
 bot = commands.Bot(command_prefix="!", intents=intents)
 
 
-@bot.event
+# ─── LOAD EXTENSIONS ─────────────────────────
+
 async def main():
     async with bot:
         await bot.load_extension("giveaway")
@@ -30,10 +31,9 @@ async def main():
 
         await bot.start(TOKEN)
 
-import asyncio
-asyncio.run(main())
 
-    # Sync commandes
+# ─── READY + SYNC ─────────────────────────
+
 @bot.event
 async def on_ready():
     synced = await bot.tree.sync()
@@ -41,79 +41,42 @@ async def on_ready():
     print("------")
 
 
-@bot.command(name="hello")
-async def hello(ctx):
-    await ctx.send(f"Hey {ctx.author.mention}! 👋")
+# ─── COMMANDES CLASSIQUES ─────────────────────────
 
-
-@bot.command(name="ping")
+@bot.command()
 async def ping(ctx):
     latency = round(bot.latency * 1000)
-    await ctx.send(f"Pong! 🏓 Latency: {latency}ms")
+    await ctx.send(f"Pong 🏓 {latency}ms")
 
 
-@bot.command(name="info")
-async def info(ctx):
-    embed = discord.Embed(
-        title="Bot Info",
-        description="A simple Discord bot built with discord.py",
-        color=discord.Color.blurple(),
-    )
-    embed.add_field(name="Server", value=ctx.guild.name, inline=True)
-    embed.add_field(name="Members", value=ctx.guild.member_count, inline=True)
-    embed.set_footer(text=f"Requested by {ctx.author}")
-    await ctx.send(embed=embed)
+@bot.command()
+async def hello(ctx):
+    await ctx.send(f"Hey {ctx.author.mention} 👋")
 
 
-@bot.command(name="roll")
-async def roll(ctx, sides: int = 6):
-    import random
-    result = random.randint(1, sides)
-    await ctx.send(f"🎲 Rolled a d{sides}: **{result}**")
-
-
-@bot.command(name="say")
-@commands.has_permissions(manage_messages=True)
-async def say(ctx, *, message: str):
-    await ctx.message.delete()
-    await ctx.send(message)
-
-
-@bot.command(name="clear")
+@bot.command()
 @commands.has_permissions(manage_messages=True)
 async def clear(ctx, amount: int = 5):
     await ctx.channel.purge(limit=amount + 1)
-    msg = await ctx.send(f"🧹 Cleared {amount} messages.")
+    msg = await ctx.send(f"🧹 {amount} messages supprimés")
     await msg.delete(delay=3)
 
 
-@bot.command(name="sync")
-@commands.has_permissions(administrator=True)
-async def sync(ctx):
-    bot.tree.clear_commands(guild=ctx.guild)
-    await bot.tree.sync(guild=ctx.guild)
-    synced = await bot.tree.sync()
-    await ctx.send(f"✅ {len(synced)} commandes slash synchronisées !")
-
+# ─── ERROR HANDLER ─────────────────────────
 
 @bot.event
 async def on_command_error(ctx, error):
     if isinstance(error, commands.MissingPermissions):
-        await ctx.send("❌ You don't have permission to use that command.")
+        await ctx.send("❌ Permissions manquantes.")
     elif isinstance(error, commands.MissingRequiredArgument):
-        await ctx.send(f"❌ Missing argument: `{error.param.name}`")
-    elif isinstance(error, commands.BadArgument):
-        await ctx.send("❌ Invalid argument provided.")
+        await ctx.send(f"❌ Argument manquant: `{error.param.name}`")
     else:
-        await ctx.send(f"❌ An error occurred: {error}")
+        await ctx.send(f"❌ Erreur: {error}")
 
 
+# ─── RUN ─────────────────────────
 
+if not TOKEN:
+    raise ValueError("DISCORD_BOT_TOKEN manquant")
 
-        
-
-
-if __name__ == "__main__":
-    if not TOKEN:
-        raise ValueError("DISCORD_BOT_TOKEN environment variable is not set.")
-    bot.run(TOKEN)
+asyncio.run(main())

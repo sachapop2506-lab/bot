@@ -120,3 +120,4 @@ class AutoReact(commands.Cog):
 # ✅ FIX ICI (IMPORTANT)
 async def setup(bot):
     await bot.add_cog(AutoReact(bot))
+     bot.tree.add_command(cog.autoreact)

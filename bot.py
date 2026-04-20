@@ -34,9 +34,10 @@ import asyncio
 asyncio.run(main())
 
     # Sync commandes
+@bot.event
+async def on_ready():
     synced = await bot.tree.sync()
     print(f"{len(synced)} commandes slash synchronisées")
-
     print("------")
 
 

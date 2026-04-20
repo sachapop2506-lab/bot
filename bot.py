@@ -2,9 +2,9 @@ import os
 import discord
 from discord.ext import commands
 from dotenv import load_dotenv
+import asyncio
 
 load_dotenv()
-
 TOKEN = os.getenv("DISCORD_BOT_TOKEN")
 
 intents = discord.Intents.default()
@@ -15,28 +15,47 @@ bot = commands.Bot(command_prefix="!", intents=intents)
 
 
 @bot.event
-async def main():
-    async with bot:
-        await bot.load_extension("giveaway")
-        await bot.load_extension("ticket")
-        await bot.load_extension("moderation")
-        await bot.load_extension("welcome")
-        await bot.load_extension("invites")
-        await bot.load_extension("levels")
-        await bot.load_extension("logs")
-        await bot.load_extension("brawlstars")
-        await bot.load_extension("fun")
-
-        await bot.start(TOKEN)
-
-import asyncio
-asyncio.run(main())
-    
-
+async def on_ready():
+    await bot.tree.sync()
     print(f"Logged in as {bot.user} (ID: {bot.user.id})")
     print("Slash commands synced.")
     print("------")
 
+
+@bot.command()
+async def hello(ctx):
+    await ctx.send(f"Hey {ctx.author.mention}! 👋")
+
+
+async def main():
+    async with bot:
+        extensions = [
+            "giveaway",
+            "ticket",
+            "moderation",
+            "welcome",
+            "invites",
+            "levels",
+            "logs",
+            "brawlstars",
+            "fun"
+        ]
+
+        for ext in extensions:
+            try:
+                await bot.load_extension(ext)
+                print(f"✅ Loaded {ext}")
+            except Exception as e:
+                print(f"❌ Error loading {ext}: {e}")
+
+        await bot.start(TOKEN)
+
+
+if __name__ == "__main__":
+    if not TOKEN:
+        raise ValueError("DISCORD_BOT_TOKEN environment variable is not set.")
+
+    asyncio.run(main())
 
 @bot.command(name="hello")
 async def hello(ctx):

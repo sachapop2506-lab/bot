@@ -15,20 +15,23 @@ bot = commands.Bot(command_prefix="!", intents=intents)
 
 
 @bot.event
-async def on_ready():
-    print(f"Logged in as {bot.user} (ID: {bot.user.id})")
+async def main():
+    async with bot:
+        await bot.load_extension("giveaway")
+        await bot.load_extension("ticket")
+        await bot.load_extension("moderation")
+        await bot.load_extension("welcome")
+        await bot.load_extension("invites")
+        await bot.load_extension("levels")
+        await bot.load_extension("logs")
+        await bot.load_extension("brawlstars")
+        await bot.load_extension("auto_react")
+        await bot.load_extension("fun")
 
-    # Charger les extensions
-    await bot.load_extension("giveaway")
-    await bot.load_extension("ticket")
-    await bot.load_extension("moderation")
-    await bot.load_extension("welcome")
-    await bot.load_extension("invites")
-    await bot.load_extension("levels")
-    await bot.load_extension("logs")
-    await bot.load_extension("brawlstars")
-    await bot.load_extension("auto_react")
-    await bot.load_extension("fun")
+        await bot.start(TOKEN)
+
+import asyncio
+asyncio.run(main())
 
     # Sync commandes
     synced = await bot.tree.sync()

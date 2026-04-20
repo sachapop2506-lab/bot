@@ -168,9 +168,15 @@ class MainView(discord.ui.View):
         self.user = user
 
     async def interaction_check(self, i: discord.Interaction):
-        return i.user.id == self.user.id
+        if i.user.id != self.user.id:
+            await i.response.send_message("❌ Pas pour toi", ephemeral=True)
+            return False
 
-    # ---------- CLICK ---------- #
+        if not i.response.is_done():
+            await i.response.defer()
+
+        return True
+
     @discord.ui.button(label="👊 Click", style=discord.ButtonStyle.primary)
     async def click(self, i: discord.Interaction, _):
         data = load()
@@ -211,19 +217,19 @@ class MainView(discord.ui.View):
         view = MainView(self.user)
         view.add_item(BrawlerSelect(p))
 
-        await i.response.edit_message(
+        await i.followup.edit_message(
+            message_id=i.message.id,
             embed=create_embed(p, f"\n👊 +{gain} coins{bonus}"),
             view=view
         )
 
-    # ---------- BOX ---------- #
     @discord.ui.button(label="🎁 Box", style=discord.ButtonStyle.success)
     async def box(self, i: discord.Interaction, _):
         data = load()
         p = get_player(data, str(self.user.id))
 
         if p["boxes"] <= 0:
-            return await i.response.send_message("❌ Pas de box", ephemeral=True)
+            return await i.followup.send("❌ Pas de box", ephemeral=True)
 
         p["boxes"] -= 1
         rewards = open_box(p)
@@ -232,12 +238,12 @@ class MainView(discord.ui.View):
         view = MainView(self.user)
         view.add_item(BrawlerSelect(p))
 
-        await i.response.edit_message(
+        await i.followup.edit_message(
+            message_id=i.message.id,
             embed=create_embed(p, "\n" + "\n".join(rewards)),
             view=view
         )
 
-    # ---------- UPGRADE ---------- #
     @discord.ui.button(label="⬆️ Upgrade", style=discord.ButtonStyle.secondary)
     async def upgrade(self, i: discord.Interaction, _):
         data = load()
@@ -247,7 +253,7 @@ class MainView(discord.ui.View):
         lvl = p["brawlers"][b]["level"]
 
         if lvl >= 11:
-            return await i.response.send_message("❌ Niveau max atteint", ephemeral=True)
+            return await i.followup.send("❌ Niveau max atteint", ephemeral=True)
 
         rarity = BRAWLERS[b]["rarity"]
         rarity_multi = RARITY_MULTIPLIER.get(rarity, 1)
@@ -256,10 +262,7 @@ class MainView(discord.ui.View):
         cost = int(base_cost * (2 ** (lvl - 1)))
 
         if p["coins"] < cost:
-            return await i.response.send_message(
-                f"❌ Pas assez de coins ({cost})",
-                ephemeral=True
-            )
+            return await i.followup.send(f"❌ Pas assez de coins ({cost})", ephemeral=True)
 
         p["coins"] -= cost
         p["brawlers"][b]["level"] += 1
@@ -269,7 +272,8 @@ class MainView(discord.ui.View):
         view = MainView(self.user)
         view.add_item(BrawlerSelect(p))
 
-        await i.response.edit_message(
+        await i.followup.edit_message(
+            message_id=i.message.id,
             embed=create_embed(p, f"\n⬆️ {b} level {p['brawlers'][b]['level']} (-{cost} coins)"),
             view=view
         )
@@ -282,13 +286,15 @@ class BSGame(commands.Cog):
 
     @app_commands.command(name="bs")
     async def bs(self, i: discord.Interaction):
+        await i.response.defer(ephemeral=True)
+
         data = load()
         p = get_player(data, str(i.user.id))
 
         view = MainView(i.user)
         view.add_item(BrawlerSelect(p))
 
-        await i.response.send_message(
+        await i.followup.send(
             embed=create_embed(p),
             view=view,
             ephemeral=True

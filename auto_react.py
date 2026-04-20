@@ -8,23 +8,27 @@ from utils import data_path
 
 FUN_CONFIG_FILE = data_path("fun_config.json")
 
+
 def load_config():
     if os.path.exists(FUN_CONFIG_FILE):
         with open(FUN_CONFIG_FILE, "r") as f:
             return json.load(f)
     return {}
 
+
 def save_config(data):
     with open(FUN_CONFIG_FILE, "w") as f:
         json.dump(data, f, indent=2)
 
+
 cooldowns = {}
+
 
 class AutoReact(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
-    # ─── GROUPE ─────────────────────────
+    # ─── GROUPE SLASH ─────────────────────────
 
     autoreact = app_commands.Group(
         name="autoreact",
@@ -113,7 +117,6 @@ class AutoReact(commands.Cog):
             await message.channel.send(msg)
 
 
+# ✅ FIX ICI (IMPORTANT)
 async def setup(bot):
-    cog = AutoReact(bot)
-    bot.tree.add_command(cog.autoreact)  # 🔥 IMPORTANT
-    await bot.add_cog(cog)
+    await bot.add_cog(AutoReact(bot))

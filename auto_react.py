@@ -31,7 +31,6 @@ async def main():
         await bot.start(TOKEN)
 
 import asyncio
-asyncio.run(main())
 
     # Sync commandes
 @bot.event

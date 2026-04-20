@@ -3,6 +3,14 @@ import discord
 from discord.ext import commands
 from dotenv import load_dotenv
 import asyncio
+@bot.command()
+@commands.has_permissions(administrator=True)
+async def sync(ctx):
+    try:
+        synced = await bot.tree.sync(guild=ctx.guild)
+        await ctx.send(f"✅ {len(synced)} commandes slash synchronisées sur ce serveur !")
+    except Exception as e:
+        await ctx.send(f"❌ Erreur : {e}")
 
 load_dotenv()
 TOKEN = os.getenv("DISCORD_BOT_TOKEN")

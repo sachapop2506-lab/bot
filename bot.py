@@ -15,25 +15,22 @@ bot = commands.Bot(command_prefix="!", intents=intents)
 
 
 @bot.event
-async def on_ready():
-extensions = [
-    "giveaway",
-    "ticket",
-    "moderation",
-    "welcome",
-    "invites",
-    "levels",
-    "logs",
-    "brawlstars",
-    "fun"
-]
+async def main():
+    async with bot:
+        await bot.load_extension("giveaway")
+        await bot.load_extension("ticket")
+        await bot.load_extension("moderation")
+        await bot.load_extension("welcome")
+        await bot.load_extension("invites")
+        await bot.load_extension("levels")
+        await bot.load_extension("logs")
+        await bot.load_extension("brawlstars")
+        await bot.load_extension("fun")
 
-for ext in extensions:
-    try:
-        await bot.load_extension(ext)
-        print(f"✅ Loaded {ext}")
-    except Exception as e:
-        print(f"❌ Failed to load {ext}: {e}")
+        await bot.start(TOKEN)
+
+import asyncio
+asyncio.run(main())
     await bot.tree.sync()
 
     print(f"Logged in as {bot.user} (ID: {bot.user.id})")

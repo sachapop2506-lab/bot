@@ -9,9 +9,12 @@ os.makedirs("/data", exist_ok=True)
 # ---------- DATA ---------- #
 
 def load():
-    if os.path.exists(FILE):
-        with open(FILE) as f:
-            return json.load(f)
+    try:
+        if os.path.exists(FILE):
+            with open(FILE) as f:
+                return json.load(f)
+    except:
+        pass
     return {}
 
 def save(data):
@@ -51,46 +54,6 @@ BRAWLERS = {
     "Leon": {"rarity": "Légendaire", "role": "Assassinat"},
 }
 
-RARITY = {
-    "Common": 55,
-    "Rare": 25,
-    "Super Rare": 12,
-    "Epic": 5,
-    "Mythique": 2,
-    "Légendaire": 1
-}
-
-RARITY_MULTIPLIER = {
-    "Common": 1.0,
-    "Rare": 1.2,
-    "Super Rare": 1.5,
-    "Epic": 2.0,
-    "Mythique": 3.0,
-    "Légendaire": 5.0
-}
-
-# ---------- UTILS ---------- #
-
-def get_multiplier(trophies):
-    return 1 + (trophies // 100) * 0.2
-
-def progress_bar(value, max_value=11, size=10):
-    filled = int(size * value / max_value)
-    return "🟩" * filled + "⬛" * (size - filled)
-
-def roll_rarity():
-    r = random.random() * 100
-    total = 0
-    for rarity, chance in RARITY.items():
-        total += chance
-        if r <= total:
-            return rarity
-    return "Common"
-
-def random_brawler(rarity):
-    pool = [b for b,v in BRAWLERS.items() if v["rarity"] == rarity]
-    return random.choice(pool if pool else list(BRAWLERS.keys()))
-
 # ---------- EMBED ---------- #
 
 def create_embed(p, extra=""):
@@ -106,7 +69,6 @@ def create_embed(p, extra=""):
     embed.add_field(name="🏆 Trophées", value=p["trophies"])
     embed.add_field(name="💰 Coins", value=p["coins"])
     embed.add_field(name="🎁 Boxes", value=p["boxes"], inline=False)
-    embed.add_field(name="📈 Niveau", value=f"{progress_bar(lvl)} (lvl {lvl}/11)", inline=False)
 
     return embed
 
@@ -119,17 +81,6 @@ def open_box(p):
     p["coins"] += coins
     rewards.append(f"🪙 {coins} coins")
 
-    rarity = roll_rarity()
-    brawler = random_brawler(rarity)
-
-    if brawler not in p["brawlers"]:
-        p["brawlers"][brawler] = {"level":1}
-        rewards.append(f"✨ Nouveau {brawler} ({rarity})")
-    else:
-        bonus = random.randint(20, 60)
-        p["coins"] += bonus
-        rewards.append(f"💰 +{bonus} coins")
-
     return rewards
 
 # ---------- UI ---------- #
@@ -137,7 +88,7 @@ def open_box(p):
 class BrawlerSelect(discord.ui.Select):
     def __init__(self, player):
         options = [
-            discord.SelectOption(label=b[:100], description=f"lvl {player['brawlers'][b]['level']}"[:100])
+            discord.SelectOption(label=str(b), description=f"lvl {player['brawlers'][b]['level']}")
             for b in player["brawlers"]
         ][:25]
 
@@ -191,61 +142,6 @@ class MainView(discord.ui.View):
             view=view
         )
 
-    @discord.ui.button(label="🎁 Box", style=discord.ButtonStyle.success)
-    async def box(self, i, _):
-        await i.response.defer()
-
-        data = load()
-        p = get_player(data, str(self.user.id))
-
-        if p["boxes"] <= 0:
-            return await i.followup.send("❌ Pas de box", ephemeral=True)
-
-        p["boxes"] -= 1
-        rewards = open_box(p)
-        save(data)
-
-        view = MainView(self.user)
-        view.add_item(BrawlerSelect(p))
-
-        await i.followup.edit_message(
-            message_id=i.message.id,
-            embed=create_embed(p, "\n" + "\n".join(rewards)),
-            view=view
-        )
-
-    @discord.ui.button(label="⬆️ Upgrade", style=discord.ButtonStyle.secondary)
-    async def upgrade(self, i, _):
-        await i.response.defer()
-
-        data = load()
-        p = get_player(data, str(self.user.id))
-
-        b = p["selected"]
-        lvl = p["brawlers"][b]["level"]
-
-        if lvl >= 11:
-            return await i.followup.send("❌ Niveau max", ephemeral=True)
-
-        cost = 100 * lvl
-
-        if p["coins"] < cost:
-            return await i.followup.send("❌ Pas assez de coins", ephemeral=True)
-
-        p["coins"] -= cost
-        p["brawlers"][b]["level"] += 1
-
-        save(data)
-
-        view = MainView(self.user)
-        view.add_item(BrawlerSelect(p))
-
-        await i.followup.edit_message(
-            message_id=i.message.id,
-            embed=create_embed(p, f"\n⬆️ Upgrade réussi (-{cost})"),
-            view=view
-        )
-
 # ---------- COG ---------- #
 
 class BSGame(commands.Cog):
@@ -262,7 +158,11 @@ class BSGame(commands.Cog):
         view = MainView(i.user)
         view.add_item(BrawlerSelect(p))
 
-        await i.followup.send(embed=create_embed(p), view=view, ephemeral=True)
+        await i.followup.send(
+            embed=create_embed(p),
+            view=view,
+            ephemeral=True
+        )
 
 # ---------- SETUP ---------- #
 

@@ -140,8 +140,9 @@ import time
 cooldowns = {}
 
 class AutoReact(commands.Cog):
-    def __init__(self, bot):
-        self.bot = bot
+   def __init__(self, bot):
+    self.bot = bot
+    self.bot.tree.add_command(self.autoreact_group)
 
     autoreact_group = app_commands.Group(
         name="autoreact",

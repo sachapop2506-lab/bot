@@ -31,7 +31,7 @@ async def main():
 
 import asyncio
 asyncio.run(main())
-    await bot.tree.sync()
+    
 
     print(f"Logged in as {bot.user} (ID: {bot.user.id})")
     print("Slash commands synced.")

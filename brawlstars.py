@@ -286,36 +286,53 @@ class MainView(discord.ui.View):
         return i.user.id == self.user.id
 
     @discord.ui.button(label="👊 Click", style=discord.ButtonStyle.primary)
-    async def click(self, i, _):
-        data = load()
-        p = get_player(data, str(self.user.id))
+async def click(self, i, _):
+    data = load()
+    p = get_player(data, str(self.user.id))
 
-        multi = get_multiplier(p["trophies"])
-        b = p["selected"]
-rarity = BRAWLERS[b]["rarity"]
+    b = p["selected"]
+    rarity = BRAWLERS[b]["rarity"]
+    role = BRAWLERS[b]["role"]
 
-rarity_multi = RARITY_MULTIPLIER.get(rarity, 1)
+    multi = get_multiplier(p["trophies"])
+    rarity_multi = RARITY_MULTIPLIER.get(rarity, 1)
 
-gain = int(random.randint(5, 15) * multi * rarity_multi)
+    gain = int(random.randint(5, 15) * multi * rarity_multi)
+    bonus = ""
 
-        p["coins"] += gain
-        p["trophies"] += 1
+    # Crit Assassin
+    if role == "Assassinat" and random.randint(1, 5) == 1:
+        gain *= 2
+        bonus += "\n💥 Crit x2"
 
-        bonus = ""
-        if random.randint(1,10) == 1:
-            p["boxes"] += 1
-            bonus = " 🎁 box!"
+    # Support bonus
+    if role == "Soutien":
+        extra = int(gain * 0.2)
+        gain += extra
+        bonus += f"\n💰 +{extra}"
 
-        save(data)
+    # Tank box bonus
+    if role == "Tank" and random.randint(1, 5) == 1:
+        p["boxes"] += 1
+        bonus += "\n🎁 Bonus box"
 
-        view = MainView(self.user)
-        view.add_item(BrawlerSelect(p))
+    # Chance normale box
+    if random.randint(1, 10) == 1:
+        p["boxes"] += 1
+        bonus += "\n🎁 Box"
 
-        await i.response.edit_message(
-            embed=create_embed(p, f"\n👊 +{gain} coins{bonus}"),
-            view=view
-        )
+    p["coins"] += gain
+    p["trophies"] += 1
 
+    save(data)
+
+    view = MainView(self.user)
+    view.add_item(BrawlerSelect(p))
+
+    await i.response.edit_message(
+        embed=create_embed(p, f"\n👊 +{gain} coins{bonus}"),
+        view=view
+    )
     @discord.ui.button(label="🎁 Box", style=discord.ButtonStyle.success)
     async def box(self, i, _):
         data = load()

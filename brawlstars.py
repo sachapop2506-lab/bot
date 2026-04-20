@@ -295,16 +295,15 @@ class MainView(discord.ui.View):
             gain += extra
             bonus += f"\n💰 +{extra}"
 
-        # 🎁 Tank
-        if role == "Tank" and random.randint(1, 5) == 1:
-            p["boxes"] += 1
-            bonus += "\n🎁 Bonus box"
+       # 🎁 Tank (plus rare)
+if role == "Tank" and random.randint(1, 25) == 1:
+    p["boxes"] += 1
+    bonus += "\n🎁 Bonus box (tank)"
 
-        # 🎁 Chance normale
-        if random.randint(1, 10) == 1:
-            p["boxes"] += 1
-            bonus += "\n🎁 Box"
-
+# 🎁 Chance TRÈS RARE
+if random.randint(1, 50) == 1:
+    p["boxes"] += 1
+    bonus += "\n🎁 Box (rare)"
         p["coins"] += gain
         p["trophies"] += 1
 
@@ -319,8 +318,6 @@ class MainView(discord.ui.View):
         )
 
     # ---------- BOX ---------- #
-    @discord.ui.button(label="🎁 Box", style=discord.ButtonStyle.success)
-    async def box(self, i: discord.Interaction, _):
         data = load()
         p = get_player(data, str(self.user.id))
 
@@ -341,56 +338,40 @@ class MainView(discord.ui.View):
 
     # ---------- UPGRADE (AJOUTÉ) ---------- #
     @discord.ui.button(label="⬆️ Upgrade", style=discord.ButtonStyle.secondary)
-    async def upgrade(self, i: discord.Interaction, _):
-        data = load()
-        p = get_player(data, str(self.user.id))
+async def upgrade(self, i: discord.Interaction, _):
+    data = load()
+    p = get_player(data, str(self.user.id))
 
-        b = p["selected"]
-        lvl = p["brawlers"][b]["level"]
+    b = p["selected"]
+    lvl = p["brawlers"][b]["level"]
 
-        if lvl >= 11:
-            return await i.response.send_message("❌ Niveau max atteint", ephemeral=True)
+    if lvl >= 11:
+        return await i.response.send_message("❌ Niveau max atteint", ephemeral=True)
 
-        cost = int(100 * (1.5 ** (lvl - 1)))
+    rarity = BRAWLERS[b]["rarity"]
+    rarity_multi = RARITY_MULTIPLIER.get(rarity, 1)
 
-        if p["coins"] < cost:
-            return await i.response.send_message(
-                f"❌ Pas assez de coins ({cost})",
-                ephemeral=True
-            )
+    base_cost = 100 * rarity_multi
+    cost = int(base_cost * (2 ** (lvl - 1)))
 
-        p["coins"] -= cost
-        p["brawlers"][b]["level"] += 1
-
-        save(data)
-
-        view = MainView(self.user)
-        view.add_item(BrawlerSelect(p))
-
-        await i.response.edit_message(
-            embed=create_embed(p, f"\n⬆️ {b} level {p['brawlers'][b]['level']}"),
-            view=view
+    if p["coins"] < cost:
+        return await i.response.send_message(
+            f"❌ Pas assez de coins ({cost})",
+            ephemeral=True
         )
 
-    @discord.ui.button(label="🎁 Box", style=discord.ButtonStyle.success)
-    async def box(self, i: discord.Interaction, _):
-        data = load()
-        p = get_player(data, str(self.user.id))
+    p["coins"] -= cost
+    p["brawlers"][b]["level"] += 1
 
-        if p["boxes"] <= 0:
-            return await i.response.send_message("❌ Pas de box", ephemeral=True)
+    save(data)
 
-        p["boxes"] -= 1
-        rewards = open_box(p)
-        save(data)
+    view = MainView(self.user)
+    view.add_item(BrawlerSelect(p))
 
-        view = MainView(self.user)
-        view.add_item(BrawlerSelect(p))
-
-        await i.response.edit_message(
-            embed=create_embed(p, "\n" + "\n".join(rewards)),
-            view=view
-        )
+    await i.response.edit_message(
+        embed=create_embed(p, f"\n⬆️ {b} level {p['brawlers'][b]['level']} (-{cost} coins)"),
+        view=view
+    )
 
 # ---------- COG ---------- #
 

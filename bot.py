@@ -15,26 +15,19 @@ bot = commands.Bot(command_prefix="!", intents=intents)
 
 
 @bot.event
-async def main():
-    async with bot:
-        await bot.load_extension("giveaway")
-        await bot.load_extension("ticket")
-        await bot.load_extension("moderation")
-        await bot.load_extension("welcome")
-        await bot.load_extension("invites")
-        await bot.load_extension("levels")
-        await bot.load_extension("logs")
-        await bot.load_extension("brawlstars")
-        await bot.load_extension("auto_react")
-        await bot.load_extension("fun")
-
-        await bot.start(TOKEN)
-
-    # Sync commandes
-@bot.event
 async def on_ready():
-    synced = await bot.tree.sync()
-    print(f"{len(synced)} commandes slash synchronisées")
+    await bot.load_extension("giveaway")
+    await bot.load_extension("ticket")
+    await bot.load_extension("moderation")
+    await bot.load_extension("welcome")
+    await bot.load_extension("invites")
+    await bot.load_extension("levels")
+    await bot.load_extension("logs")
+    await bot.load_extension("brawlstars")
+    await bot.load_extension("fun")
+    await bot.tree.sync()
+    print(f"Logged in as {bot.user} (ID: {bot.user.id})")
+    print("Slash commands synced.")
     print("------")
 
 
@@ -98,7 +91,7 @@ async def on_command_error(ctx, error):
     if isinstance(error, commands.MissingPermissions):
         await ctx.send("❌ You don't have permission to use that command.")
     elif isinstance(error, commands.MissingRequiredArgument):
-        await ctx.send(f"❌ Missing argument: {error.param.name}")
+        await ctx.send(f"❌ Missing argument: `{error.param.name}`")
     elif isinstance(error, commands.BadArgument):
         await ctx.send("❌ Invalid argument provided.")
     else:
@@ -106,7 +99,10 @@ async def on_command_error(ctx, error):
 
 
 
-
+@bot.event
+async def on_ready():
+    await bot.tree.sync()
+    print("Slash commands sync")
         
 
 

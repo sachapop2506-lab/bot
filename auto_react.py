@@ -20,7 +20,7 @@ def save_config(data):
 
 cooldowns = {}
 
-# 🔥 IMPORTANT : GroupCog
+# ✅ GroupCog correct
 class AutoReact(commands.GroupCog, name="autoreact"):
     def __init__(self, bot):
         self.bot = bot
@@ -82,8 +82,11 @@ class AutoReact(commands.GroupCog, name="autoreact"):
         msg = ""
         for channel_id, data in ar.items():
             channel = interaction.guild.get_channel(int(channel_id))
-            name = channel.mention if channel else channel_id
-            msg += f"{name} → {' '.join(data.get('emojis', []))}\n"
+            name = channel.mention if channel else f"Salon supprimé ({channel_id})"
+            emojis = " ".join(data.get("emojis", [])) or "Aucun"
+            message = data.get("message") or "Aucun"
+
+            msg += f"{name}\n→ Emojis : {emojis}\n→ Message : {message}\n\n"
 
         await interaction.response.send_message(msg)
 
@@ -109,19 +112,19 @@ class AutoReact(commands.GroupCog, name="autoreact"):
 
         cooldowns[key] = now
 
+        # emojis
         for emoji in channel_config.get("emojis", []):
             try:
                 await message.add_reaction(emoji)
             except:
                 pass
 
+        # message
         if channel_config.get("message"):
             msg = channel_config["message"].replace("{user}", message.author.mention)
             await message.channel.send(msg)
 
+
+# ✅ setup correct
 async def setup(bot):
     await bot.add_cog(AutoReact(bot))
-
-@app_commands.command(name="testauto")
-async def testauto(self, interaction: discord.Interaction):
-    await interaction.response.send_message("OK")

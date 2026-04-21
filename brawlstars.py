@@ -166,7 +166,7 @@ RARITY_MULTIPLIER = {
     "Super Rare": 1.7,
     "Epic": 2.5,
     "Mythique": 4,
-    "Légendaire": 7
+    "Légendaire": 7,
     "Ultra Légendaire": 9
 }
 

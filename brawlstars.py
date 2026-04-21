@@ -208,7 +208,7 @@ def apply_role_bonus(role, gain, p):
 
     elif role == "Tank":
         gain = int(gain * 0.9)
-        if random.randint(1, 5) == 1:
+        if random.randint(1, 40) == 1:
             p["boxes"] += 1
             msg = "🎁 Box bonus"
 
@@ -331,7 +331,7 @@ class MainView(discord.ui.View):
         gain, msg = apply_role_bonus(BRAWLERS[b]["role"], gain, p)
 
         drop = ""
-        if random.random() < 0.5:
+        if random.random() < 0.08:
             p["boxes"] += 1
             drop = "🎁 Box gagnée !"
 

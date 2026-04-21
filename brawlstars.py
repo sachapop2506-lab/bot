@@ -293,27 +293,33 @@ class MainView(discord.ui.View):
         return True
 
     @discord.ui.button(label="👊 Click", style=discord.ButtonStyle.primary)
-    async def click(self, i, _):
-        await i.response.defer()
+async def click(self, i, _):
+    await i.response.defer()
 
-        data = load()
-        p = get_player(data, str(self.user.id))
+    data = load()
+    p = get_player(data, str(self.user.id))
 
-        gain = random.randint(5, 15)
-        p["coins"] += gain
-        p["trophies"] += 1
+    gain = random.randint(5, 15)
+    p["coins"] += gain
+    p["trophies"] += 1
 
-        save(data)
+    bonus = ""
 
-        view = MainView(self.user)
-        view.add_item(BrawlerSelect(p))
+    # 🎁 DROP BOX (1 chance sur 25)
+    if random.randint(1, 50) == 1:
+        p["boxes"] += 1
+        bonus += "\n🎁 Tu as gagné une box !"
 
-        await i.followup.edit_message(
-            message_id=i.message.id,
-            embed=create_embed(p, f"👊 +{gain} coins"),
-            view=view
-        )
+    save(data)
 
+    view = MainView(self.user)
+    view.add_item(BrawlerSelect(p))
+
+    await i.followup.edit_message(
+        message_id=i.message.id,
+        embed=create_embed(p, f"\n👊 +{gain} coins{bonus}"),
+        view=view
+    )
     @discord.ui.button(label="🎁 Box", style=discord.ButtonStyle.success)
     async def box(self, i, _):
         await i.response.defer()

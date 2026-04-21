@@ -491,29 +491,29 @@ class MainView(discord.ui.View):
         )
 
     # 🛒 SHOP
-@discord.ui.button(label="Shop", emoji="🛒", style=discord.ButtonStyle.secondary)
-async def shop(self, i: discord.Interaction, _):
-    data = load()
-    check_daily_shop(data)
-    save(data)
+    @discord.ui.button(label="Shop", emoji="🛒", style=discord.ButtonStyle.secondary)
+    async def shop(self, i: discord.Interaction, _):
+        data = load()
+        check_daily_shop(data)
+        save(data)
 
-    daily = data["shop"].get("daily_brawler")
+        daily = data["shop"].get("daily_brawler")
 
-    rarity = BRAWLERS[daily]["rarity"]
-    price = BRAWLER_PRICES[rarity]
+        rarity = BRAWLERS[daily]["rarity"]
+        price = BRAWLER_PRICES[rarity]
 
-    embed = discord.Embed(title="🛒 Shop")
-    embed.description = (
-        f"📦 Box — {SHOP['box']['price']} coins (1/jour)\n"
-        f"🎁 Big Box — {SHOP['bigbox']['price']} coins\n\n"
-        f"🔥 Brawler du jour:\n{daily} — {price} coins"
-    )
+        embed = discord.Embed(title="🛒 Shop")
+        embed.description = (
+            f"📦 Box — {SHOP['box']['price']} coins (1/jour)\n"
+            f"🎁 Big Box — {SHOP['bigbox']['price']} coins\n\n"
+            f"🔥 Brawler du jour:\n{daily} — {price} coins"
+        )
 
-    await i.response.send_message(
-        embed=embed,
-        view=ShopView(self.user),
-        ephemeral=True
-    )
+        await i.response.send_message(
+            embed=embed,
+            view=ShopView(self.user),
+            ephemeral=True
+        )
 # ---------- LEADERBOARD ---------- #
 
 class LeaderboardView(discord.ui.View):

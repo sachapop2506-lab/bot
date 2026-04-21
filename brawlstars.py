@@ -349,48 +349,48 @@ class MainView(discord.ui.View):
         await i.followup.edit_message(message_id=i.message.id, embed=create_embed(p, txt), view=view)
 
     @discord.ui.button(label="Box", emoji="🎁", style=discord.ButtonStyle.success)
-    async def box(self, i, _):
-        await i.response.defer()
+async def box(self, i: discord.Interaction, _):
+    await i.response.defer()
 
-        data = load()
-        p = get_player(data, str(self.user.id))
+    data = load()
+    p = get_player(data, str(self.user.id))
 
-        if p["boxes"] <= 0:
-            return await i.followup.send("Pas de box", ephemeral=True)
+    if p["boxes"] <= 0:
+        return await i.followup.send("Pas de box", ephemeral=True)
 
-        p["boxes"] -= 1
-        rewards = []
+    p["boxes"] -= 1
+    rewards = []
 
-        coins = random.randint(50,150)
-        p["coins"] += coins
-        rewards.append(f"💰 +{coins}")
+    # 💰 coins
+    coins = random.randint(50, 150)
+    p["coins"] += coins
+    rewards.append(f"+{coins} coins")
 
-       # 🎁 DROP BRAWLER (beaucoup plus équilibré)
-if random.random() < 0.55:  # 55% de chance de loot brawler
-    rarity = roll_rarity()
-    brawler = random_brawler(rarity)
+    # 🎁 DROP BRAWLER (FIX INDENT + LOGIQUE)
+    if random.random() < 0.55:
+        rarity = roll_rarity()
+        brawler = random_brawler(rarity)
 
-    if brawler not in p["brawlers"]:
-        p["brawlers"][brawler] = {"level": 1}
-        rewards.append(f"🧑‍🎤 Nouveau {brawler} ({rarity})")
+        if brawler not in p["brawlers"]:
+            p["brawlers"][brawler] = {"level": 1}
+            rewards.append(f"🧑‍🎤 Nouveau {brawler} ({rarity})")
+        else:
+            bonus = random.randint(40, 120)
+            p["coins"] += bonus
+            rewards.append(f"🔁 Doublon {brawler} → +{bonus} coins")
     else:
-        bonus = random.randint(40, 120)
-        p["coins"] += bonus
-        rewards.append(f"🔁 Doublon {brawler} → +{bonus} coins")
-else:
-    rewards.append("❌ Aucun brawler")
+        rewards.append("❌ Aucun brawler")
 
-        save(data)
+    save(data)
 
-        view = MainView(self.user)
-        view.add_item(BrawlerSelect(p))
+    view = MainView(self.user)
+    view.add_item(BrawlerSelect(p))
 
-        await i.followup.edit_message(
-            message_id=i.message.id,
-            embed=create_embed(p, "\n".join(rewards)),
-            view=view
-        )
-
+    await i.followup.edit_message(
+        message_id=i.message.id,
+        embed=create_embed(p, "\n".join(rewards)),
+        view=view
+    )
     @discord.ui.button(label="Upgrade", emoji="⬆️", style=discord.ButtonStyle.secondary)
     async def upgrade(self, i, _):
         await i.response.defer()

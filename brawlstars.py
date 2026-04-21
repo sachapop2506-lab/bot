@@ -235,8 +235,8 @@ def apply_role_bonus(role, gain, p):
     # ---------- QUESTS / SHOP ---------- #
 
 SHOP = {
-    "box": {"price": 100},
-    "bigbox": {"price": 300},
+    "box": {"price": 1000},
+    "bigbox": {"price": 3000},
 }
 
 def get_daily():

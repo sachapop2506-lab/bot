@@ -149,7 +149,6 @@ BRAWLERS = {
     "Kaze": {"rarity": "Ultra Légendaire", "role": "Assassinat"},
     "Sirius": {"rarity": "Ultra Légendaire", "role": "Contrôle"},
 }
-
 RARITY_MULTIPLIER = {
     "Common": 1.0,
     "Rare": 1.3,
@@ -157,7 +156,7 @@ RARITY_MULTIPLIER = {
     "Epic": 2.5,
     "Mythique": 4,
     "Légendaire": 7,
-    "Ultra Légendaire": 9
+    "Ultra Légendaire":9
 }
 
 RARITY_CHANCES = {
@@ -187,6 +186,10 @@ def random_brawler(rarity):
 
 def level_multiplier(level):
     return 1 + (level - 1) * 0.25
+
+def progress_bar(value, max_value=11, size=10):
+    filled = int(size * value / max_value)
+    return "█" * filled + "░" * (size - filled)
 
 # ---------- ROLE SYSTEM ---------- #
 
@@ -234,24 +237,29 @@ def create_embed(p, extra=""):
     lvl = p["brawlers"][b]["level"]
     info = BRAWLERS.get(b, {"rarity": "?", "role": "?"})
 
-    colors = {
-        "Common": 0x95a5a6,
-        "Rare": 0x3498db,
-        "Super Rare": 0x2ecc71,
-        "Epic": 0x9b59b6,
-        "Mythique": 0xe67e22,
-        "Légendaire": 0xf1c40f
-    }
-
     embed = discord.Embed(
-        title=f"{b} | Niveau {lvl}",
+        title=f"🎮 {b}",
         description=f"{info['rarity']} • {info['role']}",
-        color=colors.get(info["rarity"], 0xf1c40f)
+        color=0xf1c40f
     )
 
-    embed.add_field(name="Coins", value=p["coins"])
-    embed.add_field(name="Trophées", value=p["trophies"])
-    embed.add_field(name="Boxes", value=p["boxes"], inline=False)
+    embed.add_field(
+        name="Niveau",
+        value=f"{progress_bar(lvl)}\nLvl {lvl}/11",
+        inline=False
+    )
+
+    embed.add_field(
+        name="Stats",
+        value=f"💰 {p['coins']} coins\n🏆 {p['trophies']} trophées",
+        inline=True
+    )
+
+    embed.add_field(
+        name="Inventaire",
+        value=f"🎁 {p['boxes']} box",
+        inline=True
+    )
 
     if extra:
         embed.add_field(name="Action", value=extra, inline=False)
@@ -263,7 +271,10 @@ def create_embed(p, extra=""):
 class BrawlerSelect(discord.ui.Select):
     def __init__(self, player):
         options = [
-            discord.SelectOption(label=b, description=f"lvl {player['brawlers'][b]['level']}")
+            discord.SelectOption(
+                label=b,
+                description=f"Lvl {player['brawlers'][b]['level']} • {BRAWLERS[b]['rarity']}"
+            )
             for b in player["brawlers"]
         ][:25]
 
@@ -295,7 +306,7 @@ class MainView(discord.ui.View):
             return False
         return True
 
-    @discord.ui.button(label="Click", style=discord.ButtonStyle.primary)
+    @discord.ui.button(label="👊 Click", style=discord.ButtonStyle.primary)
     async def click(self, i, _):
         await i.response.defer()
 
@@ -309,7 +320,6 @@ class MainView(discord.ui.View):
 
         base = random.randint(5, 10)
         gain = int(base * level_multiplier(lvl) * RARITY_MULTIPLIER[rarity])
-
         gain, msg = apply_role_bonus(role, gain, p)
 
         # 🎁 DROP BOX
@@ -317,13 +327,13 @@ class MainView(discord.ui.View):
         r = random.randint(1, 100)
         if r <= 3:
             p["boxes"] += 1
-            drop = "Mega Box"
+            drop = "🟥 MEGA BOX"
         elif r <= 10:
             p["boxes"] += 1
-            drop = "Big Box"
+            drop = "🟪 BIG BOX"
         elif r <= 25:
             p["boxes"] += 1
-            drop = "Box"
+            drop = "🟦 BOX"
 
         p["coins"] += gain
         p["trophies"] += 1
@@ -335,7 +345,7 @@ class MainView(discord.ui.View):
 
         txt = f"+{gain} coins"
         if msg: txt += f"\n{msg}"
-        if drop: txt += f"\n🎁 {drop}"
+        if drop: txt += f"\n{drop} obtenue"
 
         await i.followup.edit_message(
             message_id=i.message.id,
@@ -343,7 +353,7 @@ class MainView(discord.ui.View):
             view=view
         )
 
-    @discord.ui.button(label="Box", style=discord.ButtonStyle.success)
+    @discord.ui.button(label="🎁 Box", style=discord.ButtonStyle.success)
     async def box(self, i, _):
         await i.response.defer()
 
@@ -380,7 +390,7 @@ class MainView(discord.ui.View):
             view=view
         )
 
-    @discord.ui.button(label="Upgrade", style=discord.ButtonStyle.secondary)
+    @discord.ui.button(label="⬆️ Upgrade", style=discord.ButtonStyle.secondary)
     async def upgrade(self, i, _):
         await i.response.defer()
 
@@ -413,7 +423,37 @@ class MainView(discord.ui.View):
             view=view
         )
 
-# ---------- COMMAND ---------- #
+# ---------- LEADERBOARD ---------- #
+
+class LeaderboardView(discord.ui.View):
+    def __init__(self, data):
+        super().__init__(timeout=60)
+        self.data = data
+        self.mode = "coins"
+
+    def get_embed(self):
+        sorted_players = sorted(
+            self.data.items(),
+            key=lambda x: x[1][self.mode],
+            reverse=True
+        )[:10]
+
+        desc = ""
+        for i, (uid, p) in enumerate(sorted_players, 1):
+            desc += f"**{i}.** <@{uid}> — {p[self.mode]}\n"
+
+        return discord.Embed(
+            title=f"🏆 Leaderboard ({self.mode})",
+            description=desc or "Vide",
+            color=0xf1c40f
+        )
+
+    @discord.ui.button(label="Switch", style=discord.ButtonStyle.primary)
+    async def switch(self, i, _):
+        self.mode = "trophies" if self.mode == "coins" else "coins"
+        await i.response.edit_message(embed=self.get_embed(), view=self)
+
+# ---------- COG ---------- #
 
 class BSGame(commands.Cog):
     def __init__(self, bot):
@@ -431,6 +471,17 @@ class BSGame(commands.Cog):
 
         await interaction.followup.send(
             embed=create_embed(p),
+            view=view,
+            ephemeral=True
+        )
+
+    @app_commands.command(name="leaderboard")
+    async def leaderboard(self, interaction: discord.Interaction):
+        data = load()
+        view = LeaderboardView(data)
+
+        await interaction.response.send_message(
+            embed=view.get_embed(),
             view=view,
             ephemeral=True
         )

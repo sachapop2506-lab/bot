@@ -171,7 +171,15 @@ RARITY_MULTIPLIER = {
 }
 
 # ---------- UTILS ---------- #
+def get_leaderboard(data, limit=10):
+    players = []
 
+    for uid, p in data.items():
+        players.append((uid, p.get("trophies", 0)))
+
+    players.sort(key=lambda x: x[1], reverse=True)
+    return players[:limit]
+    
 def roll_rarity():
     r = random.random() * 100
     total = 0
@@ -387,8 +395,11 @@ class BSGame(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
-    @app_commands.command(name="bs")
-    async def bs(self, interaction: discord.Interaction):
+    bs = app_commands.Group(name="bs", description="Jeu Brawl Stars")
+
+    # 🎮 MENU PRINCIPAL
+    @bs.command(name="play", description="Ouvrir le jeu")
+    async def play(self, interaction: discord.Interaction):
         await interaction.response.defer(ephemeral=True)
 
         data = load()
@@ -403,6 +414,29 @@ class BSGame(commands.Cog):
             ephemeral=True
         )
 
+    # 🏆 LEADERBOARD
+    @bs.command(name="leaderboard", description="Classement des joueurs")
+    async def leaderboard(self, interaction: discord.Interaction):
+        data = load()
+        top = get_leaderboard(data)
+
+        if not top:
+            return await interaction.response.send_message("Aucun joueur.", ephemeral=True)
+
+        embed = discord.Embed(
+            title="🏆 Leaderboard",
+            color=0xf1c40f
+        )
+
+        desc = ""
+        for i, (uid, trophies) in enumerate(top, start=1):
+            user = self.bot.get_user(int(uid))
+            name = user.name if user else f"User {uid}"
+            desc += f"{i}. {name} — {trophies} trophées\n"
+
+        embed.description = desc
+
+        await interaction.response.send_message(embed=embed)
 # ---------- SETUP ---------- #
 
 async def setup(bot):

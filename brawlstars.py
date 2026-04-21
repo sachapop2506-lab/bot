@@ -366,75 +366,75 @@ class MainView(discord.ui.View):
             return False
         return True
 
-    # 👊 CLICK
-    @discord.ui.button(label="Click", emoji="👊", style=discord.ButtonStyle.primary)
-    async def click(self, i: discord.Interaction, _):
-        await i.response.defer()
+@discord.ui.button(label="Click", emoji="👊", style=discord.ButtonStyle.primary)
+async def click(self, i: discord.Interaction, _):
+    await i.response.defer()
 
-        data = load()
-        p = get_player(data, str(self.user.id))
+    data = load()
+    p = get_player(data, str(self.user.id))
 
-        check_reset_daily(p)
+    check_reset_daily(p)
 
-        b = p["selected"]
-        lvl = p["brawlers"][b]["level"]
-        rarity = BRAWLERS[b]["rarity"]
-        role = BRAWLERS[b]["role"]
+    b = p["selected"]
+    lvl = p["brawlers"][b]["level"]
+    rarity = BRAWLERS[b]["rarity"]
+    role = BRAWLERS[b]["role"]
 
-        base = random.randint(5, 10)
-        gain = int(base * level_multiplier(lvl) * RARITY_MULTIPLIER[rarity])
-        gain, msg = apply_role_bonus(role, gain, p)
+    base = random.randint(5, 10)
+    gain = int(base * level_multiplier(lvl) * RARITY_MULTIPLIER[rarity])
+    gain, msg = apply_role_bonus(role, gain, p)
 
-        import time
+    import time
 
-         drop = ""
-         if random.random() < 0.08:
-            p["boxes"] += 1
-            drop = "🎁 +1 box"
-# BOOST
-if p.get("boost_end", 0) > time.time():
-    if p["boost_type"] == "x2":
-        gain *= 2
-        msg += "\n🚀 Boost x2"
+    drop = ""
+    if random.random() < 0.08:
+        p["boxes"] += 1
+        drop = "🎁 +1 box"
 
-    elif p["boost_type"] == "luck":
-        if random.random() < 0.2:
-            p["boxes"] += 1
-            msg += "\n🍀 Chance → +1 box"
+    # BOOST
+    if p.get("boost_end", 0) > time.time():
+        if p["boost_type"] == "x2":
+            gain *= 2
+            msg += "\n🚀 Boost x2"
 
-    elif p["boost_type"] == "trophies":
-        p["trophies"] += 2
-        msg += "\n🏆 Boost trophées"
+        elif p["boost_type"] == "luck":
+            if random.random() < 0.2:
+                p["boxes"] += 1
+                msg += "\n🍀 Chance → +1 box"
 
-# 👉 CE CODE DOIT ÊTRE EN DEHORS DU BOOST
-p["coins"] += gain
-p["trophies"] += 1
+        elif p["boost_type"] == "trophies":
+            p["trophies"] += 2
+            msg += "\n🏆 Boost trophées"
 
-        if "daily" not in p:
-            p["daily"] = get_daily()
+    # IMPORTANT (était mal indenté)
+    p["coins"] += gain
+    p["trophies"] += 1
 
-        if p["daily"]["done"] < p["daily"]["click"]:
-            p["daily"]["done"] += 1
-            if p["daily"]["done"] >= p["daily"]["click"]:
-                p["coins"] += p["daily"]["reward"]
-                msg += f"\n🎯 Quête terminée +{p['daily']['reward']} coins"
+    if "daily" not in p:
+        p["daily"] = get_daily()
 
-        save(data)
+    if p["daily"]["done"] < p["daily"]["click"]:
+        p["daily"]["done"] += 1
+        if p["daily"]["done"] >= p["daily"]["click"]:
+            p["coins"] += p["daily"]["reward"]
+            msg += f"\n🎯 Quête terminée +{p['daily']['reward']} coins"
 
-        view = MainView(self.user)
-        view.add_item(BrawlerSelect(p))
+    save(data)
 
-        txt = f"+{gain} coins"
-        if msg:
-            txt += f"\n{msg}"
-        if drop:
-            txt += f"\n{drop}"
+    view = MainView(self.user)
+    view.add_item(BrawlerSelect(p))
 
-        await i.followup.edit_message(
-            message_id=i.message.id,
-            embed=create_embed(p, txt),
-            view=view
-        )
+    txt = f"+{gain} coins"
+    if msg:
+        txt += f"\n{msg}"
+    if drop:
+        txt += f"\n{drop}"
+
+    await i.followup.edit_message(
+        message_id=i.message.id,
+        embed=create_embed(p, txt),
+        view=view
+    )
 
     # 🎁 BOX
     @discord.ui.button(label="Box", emoji="🎁", style=discord.ButtonStyle.success)
@@ -511,8 +511,8 @@ p["trophies"] += 1
         )
 
     # 🛒 SHOP
-    @discord.ui.button(label="Shop", emoji="🛒", style=discord.ButtonStyle.secondary)
-    async def shop(self, i: discord.Interaction, _):
+@discord.ui.button(label="Shop", emoji="🛒", style=discord.ButtonStyle.secondary)
+async def shop(self, i: discord.Interaction, _):
     data = load()
     check_daily_shop(data)
     save(data)
@@ -637,30 +637,30 @@ class ShopView(discord.ui.View):
 
         await i.followup.send("📦 Box achetée (1/jour)", ephemeral=True)
                               
-    @discord.ui.button(label="Acheter Boost", style=discord.ButtonStyle.secondary)
-    async def buy_boost(self, i: discord.Interaction, _):
-        import time
+@discord.ui.button(label="Acheter Boost", style=discord.ButtonStyle.secondary)
+async def buy_boost(self, i: discord.Interaction, _):
+    import time
 
-        await i.response.defer(ephemeral=True)
+    await i.response.defer(ephemeral=True)
 
-        data = load()
-        check_daily_shop(data)
+    data = load()
+    check_daily_shop(data)
 
-        p = get_player(data, str(self.user.id))
+    p = get_player(data, str(self.user.id))
 
-        boost = data["shop"]["daily_boost"]
-        price = 2000
+    boost = data["shop"]["daily_boost"]
+    price = 2000
 
-        if p["coins"] < price:
+    if p["coins"] < price:
         return await i.followup.send("Pas assez", ephemeral=True)
 
-        p["coins"] -= price
-        p["boost_type"] = boost
-        p["boost_end"] = int(time.time()) + 600
+    p["coins"] -= price
+    p["boost_type"] = boost
+    p["boost_end"] = int(time.time()) + 600
 
-        save(data)
+    save(data)
 
-        await i.followup.send(f"🚀 Boost activé: {boost} (10 min)", ephemeral=True)
+    await i.followup.send(f"🚀 Boost activé: {boost} (10 min)", ephemeral=True)
 # ---------- COG ---------- #
 
 class BSGame(commands.GroupCog, name="bs"):

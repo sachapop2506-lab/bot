@@ -457,80 +457,85 @@ class LeaderboardView(discord.ui.View):
 
 # ---------- COG ---------- #
 
+# ---------- COG ---------- #
+
 class BSGame(commands.GroupCog, name="bs"):
     def __init__(self, bot):
         self.bot = bot
 
     # 🎁 GIVE ADMIN
-@app_commands.command(name="give", description="Donner des récompenses")
-@app_commands.describe(
-    user="Utilisateur",
-    type="Type: coins / box / brawler",
-    amount="Quantité (pas pour brawler)",
-    brawler="Nom du brawler (si type=brawler)"
-)
-@app_commands.checks.has_permissions(administrator=True)
-async def give(
-    self,
-    interaction: discord.Interaction,
-    user: discord.User,
-    type: str,
-    amount: int = 0,
-    brawler: str = None
-):
-    data = load()
-    p = get_player(data, str(user.id))
-
-    msg = ""
-
-    # 💰 COINS
-    if type.lower() == "coins":
-        if amount <= 0:
-            return await interaction.response.send_message("Montant invalide", ephemeral=True)
-
-        p["coins"] += amount
-        msg = f"💰 {amount} coins donnés à {user.mention}"
-
-    # 🎁 BOX
-    elif type.lower() == "box":
-        if amount <= 0:
-            return await interaction.response.send_message("Montant invalide", ephemeral=True)
-
-        p["boxes"] += amount
-        msg = f"🎁 {amount} box(s) données à {user.mention}"
-
-    # 🧑‍🎤 BRAWLER
-    elif type.lower() == "brawler":
-        if not brawler:
-            return await interaction.response.send_message("Nom du brawler manquant", ephemeral=True)
-
-        if brawler not in BRAWLERS:
-            return await interaction.response.send_message("Brawler invalide", ephemeral=True)
-
-        if brawler in p["brawlers"]:
-            bonus = 200
-            p["coins"] += bonus
-            msg = f"🔁 Doublon {brawler} → +{bonus} coins"
-        else:
-            p["brawlers"][brawler] = {"level": 1}
-            msg = f"🧑‍🎤 {brawler} donné à {user.mention}"
-
-    else:
-        return await interaction.response.send_message("Type invalide (coins/box/brawler)", ephemeral=True)
-
-    save(data)
-
-    await interaction.response.send_message(
-        embed=discord.Embed(
-            title="✅ Give réussi",
-            description=msg,
-            color=0x2ecc71
-        ),
-        ephemeral=True
+    @app_commands.command(name="give", description="Donner des récompenses")
+    @app_commands.describe(
+        user="Utilisateur",
+        type="Type: coins / box / brawler",
+        amount="Quantité (pas pour brawler)",
+        brawler="Nom du brawler (si type=brawler)"
     )
-    
+    @app_commands.checks.has_permissions(administrator=True)
+    async def give(
+        self,
+        interaction,
+        user: discord.User,
+        type: str,
+        amount: int = 0,
+        brawler: str = None
+    ):
+        data = load()
+        p = get_player(data, str(user.id))
+
+        msg = ""
+
+        # 💰 COINS
+        if type.lower() == "coins":
+            if amount <= 0:
+                return await interaction.response.send_message("Montant invalide", ephemeral=True)
+
+            p["coins"] += amount
+            msg = f"💰 {amount} coins donnés à {user.mention}"
+
+        # 🎁 BOX
+        elif type.lower() == "box":
+            if amount <= 0:
+                return await interaction.response.send_message("Montant invalide", ephemeral=True)
+
+            p["boxes"] += amount
+            msg = f"🎁 {amount} box(s) données à {user.mention}"
+
+        # 🧑‍🎤 BRAWLER
+        elif type.lower() == "brawler":
+            if not brawler:
+                return await interaction.response.send_message("Nom du brawler manquant", ephemeral=True)
+
+            if brawler not in BRAWLERS:
+                return await interaction.response.send_message("Brawler invalide", ephemeral=True)
+
+            if brawler in p["brawlers"]:
+                bonus = 200
+                p["coins"] += bonus
+                msg = f"🔁 Doublon {brawler} → +{bonus} coins"
+            else:
+                p["brawlers"][brawler] = {"level": 1}
+                msg = f"🧑‍🎤 {brawler} donné à {user.mention}"
+
+        else:
+            return await interaction.response.send_message(
+                "Type invalide (coins/box/brawler)", ephemeral=True
+            )
+
+        save(data)
+
+        await interaction.response.send_message(
+            embed=discord.Embed(
+                title="✅ Give réussi",
+                description=msg,
+                color=0x2ecc71
+            ),
+            ephemeral=True
+        )
+
+    # 🎮 PLAY
     @app_commands.command(name="play")
-    async def play(self, interaction: discord.Interaction):
+    async def play(self, interaction):
         await interaction.response.defer(ephemeral=True)
 
         data = load()
@@ -539,15 +544,23 @@ async def give(
         view = MainView(interaction.user)
         view.add_item(BrawlerSelect(p))
 
-        await interaction.followup.send(embed=create_embed(p), view=view, ephemeral=True)
+        await interaction.followup.send(
+            embed=create_embed(p),
+            view=view,
+            ephemeral=True
+        )
 
+    # 🏆 LEADERBOARD
     @app_commands.command(name="leaderboard")
-    async def leaderboard(self, interaction: discord.Interaction):
+    async def leaderboard(self, interaction):
         data = load()
         view = LeaderboardView(data)
 
-        await interaction.response.send_message(embed=view.get_embed(), view=view, ephemeral=True)
-
+        await interaction.response.send_message(
+            embed=view.get_embed(),
+            view=view,
+            ephemeral=True
+        )
 # ---------- SETUP ---------- #
 
 async def setup(bot):

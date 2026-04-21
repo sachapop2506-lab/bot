@@ -232,40 +232,64 @@ def apply_role_bonus(role, gain, p):
 
 # ---------- EMBED ---------- #
 
-def create_embed(p, extra=""):
+ddef create_embed(p, extra=""):
     b = p["selected"]
     lvl = p["brawlers"][b]["level"]
     info = BRAWLERS.get(b, {"rarity": "?", "role": "?"})
 
+    # 🎨 Couleur selon rareté
+    colors = {
+        "Common": 0x95a5a6,
+        "Rare": 0x3498db,
+        "Super Rare": 0x2ecc71,
+        "Epic": 0x9b59b6,
+        "Mythique": 0xe67e22,
+        "Légendaire": 0xf1c40f,
+        "Ultra Légendaire": 0xe74c3c
+    }
+
     embed = discord.Embed(
-        title=f"🎮 {b}",
+        title=f"{b}  •  Niveau {lvl}",
         description=f"{info['rarity']} • {info['role']}",
-        color=0xf1c40f
+        color=colors.get(info["rarity"], 0xf1c40f)
     )
 
+    # 🔥 Barre de niveau stylée
     embed.add_field(
-        name="Niveau",
-        value=f"{progress_bar(lvl)}\nLvl {lvl}/11",
+        name="Progression",
+        value=f"`{progress_bar(lvl)}`\n{lvl}/11",
         inline=False
     )
 
+    # 💰 Stats propres
     embed.add_field(
-        name="Stats",
-        value=f"💰 {p['coins']} coins\n🏆 {p['trophies']} trophées",
+        name="Compte",
+        value=(
+            f"Coins : `{p['coins']}`\n"
+            f"Trophées : `{p['trophies']}`"
+        ),
         inline=True
     )
 
+    # 🎁 UNE SEULE BOX (fix)
     embed.add_field(
         name="Inventaire",
-        value=f"🎁 {p['boxes']} box",
+        value=f"Box : `{p['boxes']}`",
         inline=True
     )
 
+    # 📢 Action
     if extra:
-        embed.add_field(name="Action", value=extra, inline=False)
+        embed.add_field(
+            name="Dernière action",
+            value=f"```{extra}```",
+            inline=False
+        )
+
+    # 👤 Footer clean
+    embed.set_footer(text="Brawl Stars Discord Game")
 
     return embed
-
 # ---------- UI ---------- #
 
 class BrawlerSelect(discord.ui.Select):
@@ -337,7 +361,7 @@ class MainView(discord.ui.View):
         view = MainView(self.user)
         view.add_item(BrawlerSelect(p))
 
-        txt = f"+{gain} coins"
+        txt = f"+{gain} coins gagnés"
         if msg:
             txt += f"\n{msg}"
         if drop:

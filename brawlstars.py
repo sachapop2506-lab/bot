@@ -208,7 +208,7 @@ def apply_role_bonus(role, gain, p):
 
     elif role == "Tank":
         gain = int(gain * 0.9)
-        if random.randint(1, 20) == 1:
+        if random.randint(1, 5) == 1:
             p["boxes"] += 1
             msg = "🎁 Box bonus"
 

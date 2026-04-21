@@ -365,17 +365,20 @@ class MainView(discord.ui.View):
         p["coins"] += coins
         rewards.append(f"💰 +{coins}")
 
-        if random.random() < 0.25:
-            rarity = roll_rarity()
-            brawler = random_brawler(rarity)
+       # 🎁 DROP BRAWLER (beaucoup plus équilibré)
+if random.random() < 0.55:  # 55% de chance de loot brawler
+    rarity = roll_rarity()
+    brawler = random_brawler(rarity)
 
-            if brawler not in p["brawlers"]:
-                p["brawlers"][brawler] = {"level":1}
-                rewards.append(f"🔥 Nouveau {brawler} ({rarity})")
-            else:
-                bonus = random.randint(30,80)
-                p["coins"] += bonus
-                rewards.append(f"♻️ Doublon +{bonus}")
+    if brawler not in p["brawlers"]:
+        p["brawlers"][brawler] = {"level": 1}
+        rewards.append(f"🧑‍🎤 Nouveau {brawler} ({rarity})")
+    else:
+        bonus = random.randint(40, 120)
+        p["coins"] += bonus
+        rewards.append(f"🔁 Doublon {brawler} → +{bonus} coins")
+else:
+    rewards.append("❌ Aucun brawler")
 
         save(data)
 

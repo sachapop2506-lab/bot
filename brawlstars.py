@@ -545,9 +545,7 @@ class ShopView(discord.ui.View):
         super().__init__(timeout=60)
         self.user = user
 
-if i.user.id != self.user.id:
-    return await i.response.send_message("Pas pour toi", ephemeral=True)
-return True
+    async def interaction_check(self, i: discord.Interaction):
         if i.user.id != self.user.id:
             await i.response.send_message("Pas pour toi", ephemeral=True)
             return False

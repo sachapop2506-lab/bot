@@ -204,6 +204,77 @@ class MainView(discord.ui.View):
             await i.response.send_message("❌ Pas pour toi", ephemeral=True)
             return False
         return True
+        
+        @discord.ui.button(label="🎁 Box", style=discord.ButtonStyle.success)
+async def box(self, i, _):
+    await i.response.defer()
+
+    data = load()
+    p = get_player(data, str(self.user.id))
+
+    if p["boxes"] <= 0:
+        return await i.followup.send("❌ Pas de box", ephemeral=True)
+
+    p["boxes"] -= 1
+
+    rewards = []
+    coins = random.randint(30, 100)
+    p["coins"] += coins
+    rewards.append(f"🪙 {coins} coins")
+
+    # drop brawler
+    brawler = random.choice(list(BRAWLERS.keys()))
+
+    if brawler not in p["brawlers"]:
+        p["brawlers"][brawler] = {"level": 1}
+        rewards.append(f"✨ Nouveau {brawler}")
+    else:
+        bonus = random.randint(20, 60)
+        p["coins"] += bonus
+        rewards.append(f"💰 +{bonus} coins")
+
+    save(data)
+
+    view = MainView(self.user)
+    view.add_item(BrawlerSelect(p))
+
+    await i.followup.edit_message(
+        message_id=i.message.id,
+        embed=create_embed(p, "\n" + "\n".join(rewards)),
+        view=view
+    )
+    
+    @discord.ui.button(label="⬆️ Upgrade", style=discord.ButtonStyle.secondary)
+async def upgrade(self, i, _):
+    await i.response.defer()
+
+    data = load()
+    p = get_player(data, str(self.user.id))
+
+    b = p["selected"]
+    lvl = p["brawlers"][b]["level"]
+
+    if lvl >= 11:
+        return await i.followup.send("❌ Niveau max", ephemeral=True)
+
+    cost = 100 * lvl
+
+    if p["coins"] < cost:
+        return await i.followup.send("❌ Pas assez de coins", ephemeral=True)
+
+    p["coins"] -= cost
+    p["brawlers"][b]["level"] += 1
+
+    save(data)
+
+    view = MainView(self.user)
+    view.add_item(BrawlerSelect(p))
+
+    await i.followup.edit_message(
+        message_id=i.message.id,
+        embed=create_embed(p, f"\n⬆️ {b} lvl {lvl+1} (-{cost})"),
+        view=view
+    )
 
     @discord.ui.button(label="👊 Click", style=discord.ButtonStyle.primary)
     async def click(self, i, _):

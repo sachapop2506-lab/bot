@@ -330,49 +330,47 @@ class MainView(discord.ui.View):
             return False
         return True
 
-    # 👊 CLICK
-    @discord.ui.button(label="👊 Click", style=discord.ButtonStyle.primary)
-    async def click(self, i: discord.Interaction, _):
-        await i.response.defer()
+    @discord.ui.button(label=" ", emoji=EMOJIS["click"], style=discord.ButtonStyle.primary)
+async def click(self, i, _):
+    await i.response.defer()
 
-        data = load()
-        p = get_player(data, str(self.user.id))
+    data = load()
+    p = get_player(data, str(self.user.id))
 
-        b = p["selected"]
-        lvl = p["brawlers"][b]["level"]
-        rarity = BRAWLERS[b]["rarity"]
-        role = BRAWLERS[b]["role"]
+    b = p["selected"]
+    lvl = p["brawlers"][b]["level"]
+    rarity = BRAWLERS[b]["rarity"]
+    role = BRAWLERS[b]["role"]
 
-        base = random.randint(5, 10)
-        gain = int(base * level_multiplier(lvl) * RARITY_MULTIPLIER[rarity])
-        gain, msg = apply_role_bonus(role, gain, p)
+    base = random.randint(5, 10)
+    gain = int(base * level_multiplier(lvl) * RARITY_MULTIPLIER[rarity])
+    gain, msg = apply_role_bonus(role, gain, p)
 
-        # 🎁 DROP BOX SIMPLE
-        drop = ""
-        if random.randint(1, 10) == 1:
-            p["boxes"] += 1
-            drop = "🎁 +1 box"
+    # 🎁 DROP BOX (ICI bien indenté)
+    drop = ""
+    if random.randint(1, 5) == 1:
+        p["boxes"] += 1
+        drop = "+1 box"
 
-        p["coins"] += gain
-        p["trophies"] += 1
+    p["coins"] += gain
+    p["trophies"] += 1
 
-        save(data)
+    save(data)
 
-        view = MainView(self.user)
-        view.add_item(BrawlerSelect(p))
+    view = MainView(self.user)
+    view.add_item(BrawlerSelect(p))
 
-        txt = f"+{gain} coins gagnés"
-        if msg:
-            txt += f"\n{msg}"
-        if drop:
-            txt += f"\n{drop}"
+    txt = f"+{gain} coins"
+    if msg:
+        txt += f"\n{msg}"
+    if drop:
+        txt += f"\n{drop}"
 
-        await i.followup.edit_message(
-            message_id=i.message.id,
-            embed=create_embed(p, txt),
-            view=view
-        )
-
+    await i.followup.edit_message(
+        message_id=i.message.id,
+        embed=create_embed(p, txt),
+        view=view
+    )
     # 🎁 BOX
     @discord.ui.button(label="🎁 Box", style=discord.ButtonStyle.success)
     async def box(self, i: discord.Interaction, _):

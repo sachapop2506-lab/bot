@@ -455,12 +455,13 @@ class LeaderboardView(discord.ui.View):
 
 # ---------- COG ---------- #
 
-class BSGame(commands.Cog):
+class BSGame(commands.GroupCog, name="bs"):
     def __init__(self, bot):
         self.bot = bot
 
-    @app_commands.command(name="bs")
-    async def bs(self, interaction: discord.Interaction):
+    # 🎮 JEU
+    @app_commands.command(name="play")
+    async def play(self, interaction: discord.Interaction):
         await interaction.response.defer(ephemeral=True)
 
         data = load()
@@ -475,6 +476,7 @@ class BSGame(commands.Cog):
             ephemeral=True
         )
 
+    # 🏆 LEADERBOARD
     @app_commands.command(name="leaderboard")
     async def leaderboard(self, interaction: discord.Interaction):
         data = load()
@@ -485,7 +487,6 @@ class BSGame(commands.Cog):
             view=view,
             ephemeral=True
         )
-
 # ---------- SETUP ---------- #
 
 async def setup(bot):

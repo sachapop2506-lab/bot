@@ -397,7 +397,7 @@ class BSGame(commands.Cog):
 
     bs = app_commands.Group(name="bs", description="Jeu Brawl Stars")
 
-    # 🎮 MENU PRINCIPAL
+    # 🎮 JEU
     @bs.command(name="play", description="Ouvrir le jeu")
     async def play(self, interaction: discord.Interaction):
         await interaction.response.defer(ephemeral=True)
@@ -414,27 +414,57 @@ class BSGame(commands.Cog):
             ephemeral=True
         )
 
-    # 🏆 LEADERBOARD
-    @bs.command(name="leaderboard", description="Classement des joueurs")
+    # 🏆 LEADERBOARD TROPHÉES
+    @bs.command(name="leaderboard", description="Classement trophées")
     async def leaderboard(self, interaction: discord.Interaction):
         data = load()
-        top = get_leaderboard(data)
 
-        if not top:
-            return await interaction.response.send_message("Aucun joueur.", ephemeral=True)
+        players = [(uid, p.get("trophies", 0)) for uid, p in data.items()]
+        players.sort(key=lambda x: x[1], reverse=True)
 
         embed = discord.Embed(
-            title="🏆 Leaderboard",
+            title="🏆 Leaderboard Trophées",
             color=0xf1c40f
         )
 
         desc = ""
-        for i, (uid, trophies) in enumerate(top, start=1):
+        for i, (uid, value) in enumerate(players[:10], 1):
             user = self.bot.get_user(int(uid))
             name = user.name if user else f"User {uid}"
-            desc += f"{i}. {name} — {trophies} trophées\n"
 
-        embed.description = desc
+            medal = ["🥇", "🥈", "🥉"]
+            prefix = medal[i-1] if i <= 3 else f"{i}."
+
+            desc += f"{prefix} {name} — {value}\n"
+
+        embed.description = desc or "Aucun joueur."
+
+        await interaction.response.send_message(embed=embed)
+
+    # 💰 LEADERBOARD COINS
+    @bs.command(name="coins", description="Classement coins")
+    async def coins(self, interaction: discord.Interaction):
+        data = load()
+
+        players = [(uid, p.get("coins", 0)) for uid, p in data.items()]
+        players.sort(key=lambda x: x[1], reverse=True)
+
+        embed = discord.Embed(
+            title="💰 Leaderboard Coins",
+            color=0x2ecc71
+        )
+
+        desc = ""
+        for i, (uid, value) in enumerate(players[:10], 1):
+            user = self.bot.get_user(int(uid))
+            name = user.name if user else f"User {uid}"
+
+            medal = ["🥇", "🥈", "🥉"]
+            prefix = medal[i-1] if i <= 3 else f"{i}."
+
+            desc += f"{prefix} {name} — {value}\n"
+
+        embed.description = desc or "Aucun joueur."
 
         await interaction.response.send_message(embed=embed)
 # ---------- SETUP ---------- #

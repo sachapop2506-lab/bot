@@ -1,4 +1,4 @@
-❌ Error loading brawlstars: Extension 'brawlstars' raised an error: IndentationError: unindent does not match any outer indentation level (brawlstars.py, line 582) import discord
+import discord
 from discord.ext import commands
 from discord import app_commands
 import json, os, random

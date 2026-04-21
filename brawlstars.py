@@ -7,7 +7,21 @@ FILE = "/data/bs_game.json"
 os.makedirs("/data", exist_ok=True)
 
 # ---------- DATA ---------- #
+def get_daily_brawler():
+    return random.choice(list(BRAWLERS.keys()))
 
+def check_daily_shop(data):
+    import time
+    now = int(time.time())
+
+    if "shop" not in data:
+        data["shop"] = {}
+
+    # reset toutes les 24h
+    if "reset_time" not in data["shop"] or now - data["shop"]["reset_time"] > 86400:
+        data["shop"]["daily_brawler"] = get_daily_brawler()
+        data["shop"]["reset_time"] = now
+        
 def load():
     try:
         if os.path.exists(FILE):
@@ -28,10 +42,10 @@ def get_player(data, uid):
             "trophies": 0,
             "boxes": 5,
             "selected": "Shelly",
-            "brawlers": {"Shelly": {"level": 1}}
+            "brawlers": {"Shelly": {"level": 1}},
+            "last_box_buy": 0  # ✅ AJOUT
         }
 
-    # 🔥 FIX ancien système box
     if isinstance(data[uid]["boxes"], dict):
         data[uid]["boxes"] = sum(data[uid]["boxes"].values())
 
@@ -173,6 +187,16 @@ RARITY_CHANCES = {
     "Mythique": 2,
     "Légendaire": 0.9,
     "Ultra Légendaire": 0.1
+}
+
+BRAWLER_PRICES = {
+    "Common": 1000,
+    "Rare": 1600,
+    "Super Rare": 2400,
+    "Epic": 4000,
+    "Mythique": 8000,
+    "Légendaire": 16000,
+    "Ultra Légendaire": 30000
 }
 
 # ---------- UTILS ---------- #
@@ -468,8 +492,25 @@ class MainView(discord.ui.View):
     # 🛒 SHOP
     @discord.ui.button(label="Shop", emoji="🛒", style=discord.ButtonStyle.secondary)
     async def shop(self, i: discord.Interaction, _):
+        data = load()
+        check_daily_shop(data)
+        save(data)
+
+        data = load()
+        check_daily_shop(data)
+        save(data)
+
+daily = data["shop"].get("daily_brawler")
+
+        rarity = BRAWLERS[daily]["rarity"]
+        price = BRAWLER_PRICES[rarity]
+
         embed = discord.Embed(title="🛒 Shop")
-        embed.description = "📦 Box — 100 coins\n🎁 Big Box — 300 coins"
+        embed.description = (
+            f"📦 Box — {SHOP['box']['price']} coins (1/jour)\n"
+            f"🎁 Big Box — {SHOP['bigbox']['price']} coins\n\n"
+            f"🔥 Brawler du jour:\n{daily} — {price} coins"
+        )
 
         await i.response.send_message(
             embed=embed,
@@ -485,9 +526,17 @@ class LeaderboardView(discord.ui.View):
         self.mode = "coins"
 
     def get_embed(self):
-        top = sorted(self.data.items(), key=lambda x: x[1][self.mode], reverse=True)[:10]
-        desc = "\n".join([f"**{i+1}.** <@{u}> — {p[self.mode]}" for i,(u,p) in enumerate(top)])
-        return discord.Embed(title=f"🏆 {self.mode}", description=desc or "Vide")
+    top = sorted(
+        self.data.items(),
+        key=lambda x: x[1].get(self.mode, 0),
+        reverse=True
+    )[:10]
+
+    desc = "\n".join(
+        [f"**{i+1}.** <@{u}> — {p.get(self.mode, 0)}" for i, (u, p) in enumerate(top)]
+    )
+
+    return discord.Embed(title=f"🏆 {self.mode}", description=desc or "Vide")
 
     @discord.ui.button(label="Switch", style=discord.ButtonStyle.primary)
     async def switch(self, i, _):
@@ -499,37 +548,66 @@ class ShopView(discord.ui.View):
         super().__init__(timeout=60)
         self.user = user
 
-    async def interaction_check(self, i):
-        return i.user.id == self.user.id
+async def interaction_check(self, i: discord.Interaction):
+    if i.user.id != self.user.id:
+        await i.response.send_message("Pas pour toi", ephemeral=True)
+        return False
+    return True
 
+    # 🔥 BRAWLER DU JOUR
+    @discord.ui.button(label="Brawler du jour", style=discord.ButtonStyle.success)
+    async def buy_daily_brawler(self, i, _):
+        data = load()
+        check_daily_shop(data)
+
+        p = get_player(data, str(self.user.id))
+
+        brawler = data["shop"]["daily_brawler"]
+        rarity = BRAWLERS[brawler]["rarity"]
+        price = BRAWLER_PRICES[rarity]
+
+        if p["coins"] < price:
+            return await i.response.send_message("Pas assez", ephemeral=True)
+
+        p["coins"] -= price
+
+        if brawler in p["brawlers"]:
+            p["coins"] += 300
+            msg = "🔁 Doublon → +300 coins"
+        else:
+            p["brawlers"][brawler] = {"level": 1}
+            msg = f"🧑‍🎤 {brawler} débloqué"
+
+        save(data)
+        await i.response.send_message(msg, ephemeral=True)
+
+    # 📦 BOX 1/JOUR
     @discord.ui.button(label="Acheter Box", style=discord.ButtonStyle.success)
     async def buy_box(self, i, _):
+        import time
+
         data = load()
         p = get_player(data, str(self.user.id))
+
+        now = int(time.time())
+
+        if now - p["last_box_buy"] < 86400:
+            remaining = 86400 - (now - p["last_box_buy"])
+            hours = remaining // 3600
+            return await i.response.send_message(
+                f"⏳ Déjà acheté aujourd'hui\nRéessaie dans {hours}h",
+                ephemeral=True
+            )
 
         if p["coins"] < SHOP["box"]["price"]:
             return await i.response.send_message("Pas assez", ephemeral=True)
 
         p["coins"] -= SHOP["box"]["price"]
         p["boxes"] += 1
+        p["last_box_buy"] = now
 
         save(data)
-        await i.response.send_message("📦 Box achetée", ephemeral=True)
-
-    @discord.ui.button(label="Big Box", style=discord.ButtonStyle.primary)
-    async def big_box(self, i, _):
-        data = load()
-        p = get_player(data, str(self.user.id))
-
-        if p["coins"] < SHOP["bigbox"]["price"]:
-            return await i.response.send_message("Pas assez", ephemeral=True)
-
-        p["coins"] -= SHOP["bigbox"]["price"]
-        p["boxes"] += 3
-
-        save(data)
-        await i.response.send_message("🎁 Big Box achetée (x3)", ephemeral=True)
-
+        await i.response.send_message("📦 Box achetée (1/jour)", ephemeral=True)
 # ---------- COG ---------- #
 
 class BSGame(commands.GroupCog, name="bs"):

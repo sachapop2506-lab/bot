@@ -328,8 +328,8 @@ if random.randint(1, 5) == 1:  # 10%
     p["boxes"] += 1
     drop = "🎁 +1 box"
 
-   @discord.ui.button(label="🎁 Box", style=discord.ButtonStyle.success)
-async def box(self, i, _):
+    @discord.ui.button(label="🎁 Box", style=discord.ButtonStyle.success)
+    async def box(self, i, _):
     await i.response.defer()
 
     data = load()

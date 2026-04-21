@@ -545,7 +545,9 @@ class ShopView(discord.ui.View):
         super().__init__(timeout=60)
         self.user = user
 
-    async def interaction_check(self, i: discord.Interaction):
+if i.user.id != self.user.id:
+    return await i.response.send_message("Pas pour toi", ephemeral=True)
+return True
         if i.user.id != self.user.id:
             await i.response.send_message("Pas pour toi", ephemeral=True)
             return False
@@ -579,32 +581,39 @@ class ShopView(discord.ui.View):
         await i.response.send_message(msg, ephemeral=True)
 
     # 📦 BOX 1/JOUR
-    @discord.ui.button(label="Acheter Box", style=discord.ButtonStyle.success)
-    async def buy_box(self, i, _):
-        import time
+@discord.ui.button(label="Acheter Box", style=discord.ButtonStyle.success)
+async def buy_box(self, i: discord.Interaction, _):
+    import time
 
-        data = load()
-        p = get_player(data, str(self.user.id))
+    await i.response.defer(ephemeral=True)
 
-        now = int(time.time())
+    data = load()
+    p = get_player(data, str(self.user.id))
 
-        if now - p["last_box_buy"] < 86400:
-            remaining = 86400 - (now - p["last_box_buy"])
-            hours = remaining // 3600
-            return await i.response.send_message(
-                f"⏳ Déjà acheté aujourd'hui\nRéessaie dans {hours}h",
-                ephemeral=True
-            )
+    now = int(time.time())
 
-        if p["coins"] < SHOP["box"]["price"]:
-            return await i.response.send_message("Pas assez", ephemeral=True)
+    # cooldown
+    if now - p["last_box_buy"] < 86400:
+        remaining = 86400 - (now - p["last_box_buy"])
+        hours = remaining // 3600
 
-        p["coins"] -= SHOP["box"]["price"]
-        p["boxes"] += 1
-        p["last_box_buy"] = now
+        return await i.followup.send(
+            f"⏳ Déjà acheté aujourd'hui\nRéessaie dans {hours}h",
+            ephemeral=True
+        )
 
-        save(data)
-        await i.response.send_message("📦 Box achetée (1/jour)", ephemeral=True)
+    # pas assez d'argent
+    if p["coins"] < SHOP["box"]["price"]:
+        return await i.followup.send("Pas assez", ephemeral=True)
+
+    # achat
+    p["coins"] -= SHOP["box"]["price"]
+    p["boxes"] += 1
+    p["last_box_buy"] = now
+
+    save(data)
+
+    await i.followup.send("📦 Box achetée (1/jour)", ephemeral=True)
 # ---------- COG ---------- #
 
 class BSGame(commands.GroupCog, name="bs"):

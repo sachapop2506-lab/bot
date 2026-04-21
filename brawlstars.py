@@ -322,73 +322,54 @@ class MainView(discord.ui.View):
         gain = int(base * level_multiplier(lvl) * RARITY_MULTIPLIER[rarity])
         gain, msg = apply_role_bonus(role, gain, p)
 
-        # 🎁 DROP BOX
-        drop = ""
-        r = random.randint(1, 100)
-        if r <= 3:
-            p["boxes"] += 1
-            drop = "🟥 MEGA BOX"
-        elif r <= 10:
-            p["boxes"] += 1
-            drop = "🟪 BIG BOX"
-        elif r <= 25:
-            p["boxes"] += 1
-            drop = "🟦 BOX"
+        # 🎁 DROP BOX SIMPLE
+drop = ""
+if random.randint(1, 5) == 1:  # 10%
+    p["boxes"] += 1
+    drop = "🎁 +1 box"
 
-        p["coins"] += gain
-        p["trophies"] += 1
+   @discord.ui.button(label="🎁 Box", style=discord.ButtonStyle.success)
+async def box(self, i, _):
+    await i.response.defer()
 
-        save(data)
+    data = load()
+    p = get_player(data, str(self.user.id))
 
-        view = MainView(self.user)
-        view.add_item(BrawlerSelect(p))
+    if p["boxes"] <= 0:
+        return await i.followup.send("Pas de box", ephemeral=True)
 
-        txt = f"+{gain} coins"
-        if msg: txt += f"\n{msg}"
-        if drop: txt += f"\n{drop} obtenue"
+    p["boxes"] -= 1
 
-        await i.followup.edit_message(
-            message_id=i.message.id,
-            embed=create_embed(p, txt),
-            view=view
-        )
+    rewards = []
 
-    @discord.ui.button(label="🎁 Box", style=discord.ButtonStyle.success)
-    async def box(self, i, _):
-        await i.response.defer()
+    # 💰 coins
+    coins = random.randint(50, 150)
+    p["coins"] += coins
+    rewards.append(f"+{coins} coins")
 
-        data = load()
-        p = get_player(data, str(self.user.id))
-
-        if p["boxes"] <= 0:
-            return await i.followup.send("Pas de box", ephemeral=True)
-
-        p["boxes"] -= 1
-
-        coins = random.randint(30, 120)
-        p["coins"] += coins
-
+    # 🎲 chance brawler
+    if random.randint(1, 4) == 1:  # 25%
         rarity = roll_rarity()
         brawler = random_brawler(rarity)
 
         if brawler not in p["brawlers"]:
             p["brawlers"][brawler] = {"level": 1}
-            txt = f"Nouveau {brawler} ({rarity})"
+            rewards.append(f"Nouveau {brawler} ({rarity})")
         else:
-            bonus = random.randint(20, 60)
+            bonus = random.randint(30, 80)
             p["coins"] += bonus
-            txt = f"Doublon +{bonus}"
+            rewards.append(f"Doublon +{bonus} coins")
 
-        save(data)
+    save(data)
 
-        view = MainView(self.user)
-        view.add_item(BrawlerSelect(p))
+    view = MainView(self.user)
+    view.add_item(BrawlerSelect(p))
 
-        await i.followup.edit_message(
-            message_id=i.message.id,
-            embed=create_embed(p, f"+{coins} coins\n{txt}"),
-            view=view
-        )
+    await i.followup.edit_message(
+        message_id=i.message.id,
+        embed=create_embed(p, "\n".join(rewards)),
+        view=view
+    )
 
     @discord.ui.button(label="⬆️ Upgrade", style=discord.ButtonStyle.secondary)
     async def upgrade(self, i, _):

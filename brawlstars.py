@@ -232,7 +232,7 @@ def apply_role_bonus(role, gain, p):
 
 # ---------- EMBED ---------- #
 
-ddef create_embed(p, extra=""):
+def create_embed(p, extra=""):
     b = p["selected"]
     lvl = p["brawlers"][b]["level"]
     info = BRAWLERS.get(b, {"rarity": "?", "role": "?"})

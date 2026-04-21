@@ -319,60 +319,71 @@ class BrawlerSelect(discord.ui.Select):
             view=view
         )
 
+# ---------- EMOJIS ---------- #
+EMOJIS = {
+    "click": "👊",
+    "box": "🎁",
+    "upgrade": "⬆️"
+}
+
+# ---------- UI ---------- #
+
 class MainView(discord.ui.View):
     def __init__(self, user):
         super().__init__(timeout=120)
         self.user = user
 
-    async def interaction_check(self, i):
+    async def interaction_check(self, i: discord.Interaction):
         if i.user.id != self.user.id:
             await i.response.send_message("Pas pour toi", ephemeral=True)
             return False
         return True
 
-@discord.ui.button(label=" ", emoji=EMOJIS["click"], style=discord.ButtonStyle.primary)
-async def click(self, i, _):
-    await i.response.defer()
+    # 👊 CLICK
+    @discord.ui.button(label="Click", emoji="👊", style=discord.ButtonStyle.primary)
+    async def click(self, i: discord.Interaction, _):
+        await i.response.defer()
 
-    data = load()
-    p = get_player(data, str(self.user.id))
+        data = load()
+        p = get_player(data, str(self.user.id))
 
-    b = p["selected"]
-    lvl = p["brawlers"][b]["level"]
-    rarity = BRAWLERS[b]["rarity"]
-    role = BRAWLERS[b]["role"]
+        b = p["selected"]
+        lvl = p["brawlers"][b]["level"]
+        rarity = BRAWLERS[b]["rarity"]
+        role = BRAWLERS[b]["role"]
 
-    base = random.randint(5, 10)
-    gain = int(base * level_multiplier(lvl) * RARITY_MULTIPLIER[rarity])
-    gain, msg = apply_role_bonus(role, gain, p)
+        base = random.randint(5, 10)
+        gain = int(base * level_multiplier(lvl) * RARITY_MULTIPLIER[rarity])
+        gain, msg = apply_role_bonus(role, gain, p)
 
-    # 🎁 DROP BOX (ICI bien indenté)
-    drop = ""
-    if random.randint(1, 5) == 1:
-        p["boxes"] += 1
-        drop = "+1 box"
+        # 🎁 DROP BOX
+        drop = ""
+        if random.randint(1, 5) == 1:
+            p["boxes"] += 1
+            drop = "+1 box"
 
-    p["coins"] += gain
-    p["trophies"] += 1
+        p["coins"] += gain
+        p["trophies"] += 1
 
-    save(data)
+        save(data)
 
-    view = MainView(self.user)
-    view.add_item(BrawlerSelect(p))
+        view = MainView(self.user)
+        view.add_item(BrawlerSelect(p))
 
-    txt = f"+{gain} coins"
-    if msg:
-        txt += f"\n{msg}"
-    if drop:
-        txt += f"\n{drop}"
+        txt = f"+{gain} coins"
+        if msg:
+            txt += f"\n{msg}"
+        if drop:
+            txt += f"\n{drop}"
 
-    await i.followup.edit_message(
-        message_id=i.message.id,
-        embed=create_embed(p, txt),
-        view=view
-    )
+        await i.followup.edit_message(
+            message_id=i.message.id,
+            embed=create_embed(p, txt),
+            view=view
+        )
+
     # 🎁 BOX
-    @discord.ui.button(label="🎁 Box", style=discord.ButtonStyle.success)
+    @discord.ui.button(label="Box", emoji="🎁", style=discord.ButtonStyle.success)
     async def box(self, i: discord.Interaction, _):
         await i.response.defer()
 
@@ -414,7 +425,7 @@ async def click(self, i, _):
         )
 
     # ⬆️ UPGRADE
-    @discord.ui.button(label="⬆️ Upgrade", style=discord.ButtonStyle.secondary)
+    @discord.ui.button(label="Upgrade", emoji="⬆️", style=discord.ButtonStyle.secondary)
     async def upgrade(self, i: discord.Interaction, _):
         await i.response.defer()
 
@@ -446,39 +457,6 @@ async def click(self, i, _):
             embed=create_embed(p, f"Upgrade (-{cost})"),
             view=view
         )
-    @discord.ui.button(label="⬆️ Upgrade", style=discord.ButtonStyle.secondary)
-    async def upgrade(self, i, _):
-        await i.response.defer()
-
-        data = load()
-        p = get_player(data, str(self.user.id))
-
-        b = p["selected"]
-        lvl = p["brawlers"][b]["level"]
-
-        if lvl >= 11:
-            return await i.followup.send("Niveau max", ephemeral=True)
-
-        rarity = BRAWLERS[b]["rarity"]
-        cost = int(100 * RARITY_MULTIPLIER[rarity] * (2 ** (lvl - 1)))
-
-        if p["coins"] < cost:
-            return await i.followup.send(f"Pas assez ({cost})", ephemeral=True)
-
-        p["coins"] -= cost
-        p["brawlers"][b]["level"] += 1
-
-        save(data)
-
-        view = MainView(self.user)
-        view.add_item(BrawlerSelect(p))
-
-        await i.followup.edit_message(
-            message_id=i.message.id,
-            embed=create_embed(p, f"Upgrade (-{cost})"),
-            view=view
-        )
-
 # ---------- LEADERBOARD ---------- #
 
 class LeaderboardView(discord.ui.View):

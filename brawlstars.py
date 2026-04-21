@@ -149,6 +149,42 @@ BRAWLERS = {
     "Kaze": {"rarity": "Ultra Légendaire", "role": "Assassinat"},
     "Sirius": {"rarity": "Ultra Légendaire", "role": "Contrôle"},
 }
+
+RARITY_CHANCES = {
+    "Common": 55,
+    "Rare": 25,
+    "Super Rare": 12,
+    "Epic": 5,
+    "Mythique": 2,
+    "Légendaire": 0.9,
+    "Ultra Légendaire": 0.1
+}
+
+RARITY_MULTIPLIER = {
+    "Common": 1.0,
+    "Rare": 1.3,
+    "Super Rare": 1.7,
+    "Epic": 2.5,
+    "Mythique": 4,
+    "Légendaire": 7,
+    "Ultra Légendaire": 8 
+}
+
+# ---------- UTILS ---------- #
+
+def roll_rarity():
+    r = random.random() * 100
+    total = 0
+    for rarity, chance in RARITY_CHANCES.items():
+        total += chance
+        if r <= total:
+            return rarity
+    return "Common"
+
+def random_brawler(rarity):
+    pool = [b for b, v in BRAWLERS.items() if v["rarity"] == rarity]
+    return random.choice(pool if pool else list(BRAWLERS.keys()))
+
 # ---------- EMBED ---------- #
 
 def create_embed(p, extra=""):
@@ -246,15 +282,16 @@ class MainView(discord.ui.View):
         p["coins"] += coins
         rewards.append(f"🪙 {coins} coins")
 
-        brawler = random.choice(list(BRAWLERS.keys()))
+        rarity = roll_rarity()
+        brawler = random_brawler(rarity)
 
         if brawler not in p["brawlers"]:
             p["brawlers"][brawler] = {"level": 1}
-            rewards.append(f"✨ Nouveau {brawler}")
+            rewards.append(f"✨ {rarity} : {brawler}")
         else:
             bonus = random.randint(20, 60)
             p["coins"] += bonus
-            rewards.append(f"💰 +{bonus} coins")
+            rewards.append(f"💰 +{bonus} coins (doublon)")
 
         save(data)
 
@@ -281,10 +318,14 @@ class MainView(discord.ui.View):
         if lvl >= 11:
             return await i.followup.send("❌ Niveau max", ephemeral=True)
 
-        cost = 100 * lvl
+        rarity = BRAWLERS[b]["rarity"]
+        multiplier = RARITY_MULTIPLIER.get(rarity, 1)
+
+        base_cost = 100 * multiplier
+        cost = int(base_cost * (2 ** (lvl - 1)))  # 🔥 double
 
         if p["coins"] < cost:
-            return await i.followup.send("❌ Pas assez de coins", ephemeral=True)
+            return await i.followup.send(f"❌ Pas assez de coins ({cost})", ephemeral=True)
 
         p["coins"] -= cost
         p["brawlers"][b]["level"] += 1
@@ -296,7 +337,7 @@ class MainView(discord.ui.View):
 
         await i.followup.edit_message(
             message_id=i.message.id,
-            embed=create_embed(p, f"\n⬆️ {b} lvl {lvl+1} (-{cost})"),
+            embed=create_embed(p, f"\n⬆️ {b} lvl {lvl+1} (-{cost} coins)"),
             view=view
         )
 

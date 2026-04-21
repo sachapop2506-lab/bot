@@ -330,8 +330,8 @@ class MainView(discord.ui.View):
             return False
         return True
 
- @discord.ui.button(label=" ", emoji=EMOJIS["click"], style=discord.ButtonStyle.primary)
-    async def click(self, i, _):
+@discord.ui.button(label=" ", emoji=EMOJIS["click"], style=discord.ButtonStyle.primary)
+async def click(self, i, _):
     await i.response.defer()
 
     data = load()

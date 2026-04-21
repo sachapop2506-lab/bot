@@ -261,7 +261,6 @@ def apply_role_bonus(role, gain, p):
 
 SHOP = {
     "box": {"price": 1000},
-    "bigbox": {"price": 3000},
 }
 
 def get_daily():
@@ -504,11 +503,9 @@ class MainView(discord.ui.View):
 
         embed = discord.Embed(title="🛒 Shop")
         embed.description = (
-            f"📦 Box — {SHOP['box']['price']} coins (1/jour)\n"
-            f"🎁 Big Box — {SHOP['bigbox']['price']} coins\n\n"
+            f"📦 Box — {SHOP['box']['price']} coins (1/jour)\n\n"
             f"🔥 Brawler du jour:\n{daily} — {price} coins"
-        )
-
+)
         await i.response.send_message(
             embed=embed,
             view=ShopView(self.user),

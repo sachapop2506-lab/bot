@@ -72,17 +72,6 @@ def create_embed(p, extra=""):
 
     return embed
 
-# ---------- BOX ---------- #
-
-def open_box(p):
-    rewards = []
-
-    coins = random.randint(30, 100)
-    p["coins"] += coins
-    rewards.append(f"🪙 {coins} coins")
-
-    return rewards
-
 # ---------- UI ---------- #
 
 class BrawlerSelect(discord.ui.Select):
@@ -147,36 +136,28 @@ class MainView(discord.ui.View):
 class BSGame(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
-@app_commands.command(name="bs")
-async def bs(self, i):
-    try:
-        await i.response.defer(ephemeral=True)
 
-        data = load()
-        print("LOAD OK")
+    @app_commands.command(name="bs")
+    async def bs(self, interaction: discord.Interaction):
+        try:
+            await interaction.response.defer(ephemeral=True)
 
-        p = get_player(data, str(i.user.id))
-        print("PLAYER OK")
+            data = load()
+            p = get_player(data, str(interaction.user.id))
 
-        embed = create_embed(p)
-        print("EMBED OK")
+            view = MainView(interaction.user)
+            view.add_item(BrawlerSelect(p))
 
-        view = MainView(i.user)
-        print("VIEW OK")
+            await interaction.followup.send(
+                embed=create_embed(p),
+                view=view,
+                ephemeral=True
+            )
 
-        view.add_item(BrawlerSelect(p))
-        print("SELECT OK")
+        except Exception as e:
+            print("ERREUR BS :", e)
+            await interaction.followup.send(f"❌ {e}", ephemeral=True)
 
-        await i.followup.send(
-            embed=embed,
-            view=view,
-            ephemeral=True
-        )
-        print("SEND OK")
-
-    except Exception as e:
-        print("ERREUR BS :", e)
-        await i.followup.send(f"❌ {e}", ephemeral=True)
 # ---------- SETUP ---------- #
 
 async def setup(bot):

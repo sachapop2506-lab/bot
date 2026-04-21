@@ -30,6 +30,23 @@ def get_player(data, uid):
             "selected": "Shelly",
             "brawlers": {"Shelly": {"level": 1}}
         }
+    return data[uid]# ---------- DATA ---------- #
+
+def get_player(data, uid):
+    if uid not in data:
+        data[uid] = {
+            "coins": 0,
+            "trophies": 0,
+            "boxes": 5,
+            "selected": "Shelly",
+            "brawlers": {"Shelly": {"level": 1}}
+        }
+
+    # 🔥 FIX ancien système box (dict -> int)
+    if isinstance(data[uid]["boxes"], dict):
+        total = sum(data[uid]["boxes"].values())
+        data[uid]["boxes"] = total
+
     return data[uid]
 
 # ---------- CONFIG ---------- #
@@ -237,9 +254,8 @@ def create_embed(p, extra=""):
     lvl = p["brawlers"][b]["level"]
     info = BRAWLERS.get(b, {"rarity": "?", "role": "?"})
 
-    # 🎨 Couleur selon rareté
     colors = {
-        "Common": 0x95a5a6,
+        "Common": 0x7f8c8d,
         "Rare": 0x3498db,
         "Super Rare": 0x2ecc71,
         "Epic": 0x9b59b6,
@@ -249,45 +265,39 @@ def create_embed(p, extra=""):
     }
 
     embed = discord.Embed(
-        title=f"{b}  •  Niveau {lvl}",
-        description=f"{info['rarity']} • {info['role']}",
+        title=f"🔥 {b} • Niveau {lvl}",
+        description=f"✨ {info['rarity']} • {info['role']}",
         color=colors.get(info["rarity"], 0xf1c40f)
     )
 
-    # 🔥 Barre de niveau stylée
+    # barre stylée
+    bar = progress_bar(lvl)
     embed.add_field(
-        name="Progression",
-        value=f"`{progress_bar(lvl)}`\n{lvl}/11",
+        name="📊 Progression",
+        value=f"`{bar}`\n**{lvl}/11**",
         inline=False
     )
 
-    # 💰 Stats propres
     embed.add_field(
-        name="Compte",
-        value=(
-            f"Coins : `{p['coins']}`\n"
-            f"Trophées : `{p['trophies']}`"
-        ),
+        name="💰 Compte",
+        value=f"🪙 `{p['coins']}`\n🏆 `{p['trophies']}`",
         inline=True
     )
 
-    # 🎁 UNE SEULE BOX (fix)
     embed.add_field(
-        name="Inventaire",
-        value=f"Box : `{p['boxes']}`",
+        name="🎁 Inventaire",
+        value=f"📦 `{p['boxes']}`",
         inline=True
     )
 
-    # 📢 Action
     if extra:
         embed.add_field(
-            name="Dernière action",
+            name="⚡ Action",
             value=f"```{extra}```",
             inline=False
         )
 
-    # 👤 Footer clean
-    embed.set_footer(text="Brawl Stars Discord Game")
+    embed.set_footer(text="⭐ Brawl Stars • Discord Edition")
 
     return embed
 # ---------- UI ---------- #
@@ -356,31 +366,13 @@ class MainView(discord.ui.View):
         gain = int(base * level_multiplier(lvl) * RARITY_MULTIPLIER[rarity])
         gain, msg = apply_role_bonus(role, gain, p)
 
-        # 🎁 DROP BOX
-        drop = ""
-        if random.randint(1, 5) == 1:
-            p["boxes"] += 1
-            drop = "+1 box"
+        # 🎁 DROP BOX (fix fiable)
+drop = ""
+chance = random.random()
 
-        p["coins"] += gain
-        p["trophies"] += 1
-
-        save(data)
-
-        view = MainView(self.user)
-        view.add_item(BrawlerSelect(p))
-
-        txt = f"+{gain} coins"
-        if msg:
-            txt += f"\n{msg}"
-        if drop:
-            txt += f"\n{drop}"
-
-        await i.followup.edit_message(
-            message_id=i.message.id,
-            embed=create_embed(p, txt),
-            view=view
-        )
+if chance < 0.15:  # 15%
+    p["boxes"] += 1
+    drop = "🎁 Box gagnée !"
 
     # 🎁 BOX
     @discord.ui.button(label="Box", emoji="🎁", style=discord.ButtonStyle.success)

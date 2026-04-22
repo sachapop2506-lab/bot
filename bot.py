@@ -41,7 +41,8 @@ async def main():
             "levels",
             "logs",
             "brawlstars",
-            "fun"
+            "fun",
+            "trigger_system"
         ]
 
         for ext in extensions:

@@ -3,8 +3,52 @@ import discord
 from discord.ext import commands
 from discord import app_commands
 from collections import defaultdict
-import datetime
+import datetime, time, timedelta
 import random
+
+class SleepMode(commands.Cog):
+    def __init__(self, bot):
+        self.bot = bot
+        self.sleep_time = None  # heure limite
+        self.last_warn = {}  # {user_id: datetime}
+
+    # -------- COMMAND -------- #
+    @app_commands.command(name="sleepmode", description="Active le mode 'va dormir'")
+    async def sleepmode(self, interaction: discord.Interaction, heure: int, minute: int):
+        self.sleep_time = time(hour=heure, minute=minute)
+        await interaction.response.send_message(
+            f"🌙 Mode sommeil activé à {heure:02d}:{minute:02d}"
+        )
+
+    # -------- LISTENER -------- #
+    @commands.Cog.listener()
+    async def on_message(self, message: discord.Message):
+        if message.author.bot:
+            return
+
+        if self.sleep_time is None:
+            return
+
+        now = datetime.now().time()
+
+        # Vérifie si on est après l'heure
+        if now >= self.sleep_time:
+            user_id = message.author.id
+            now_dt = datetime.now()
+
+            # cooldown 30 minutes
+            if user_id in self.last_warn:
+                if now_dt - self.last_warn[user_id] < timedelta(minutes=30):
+                    return
+
+            self.last_warn[user_id] = now_dt
+
+            await message.channel.send(
+                f"🌙 {message.author.mention} va dormir il est tard !"
+            )
+
+async def setup(bot):
+    await bot.add_cog(SleepMode(bot))
 
 class Enquete(commands.Cog):
     def __init__(self, bot):

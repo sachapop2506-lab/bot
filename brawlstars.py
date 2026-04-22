@@ -20,8 +20,7 @@ def check_daily_shop(data):
     if "reset_time" not in data["shop"] or now >= data["shop"]["reset_time"]:
         data["shop"]["daily_brawler"] = get_daily_brawler()
         data["shop"]["reset_time"] = now + 10800  # 3h (3*60*60)
-        SHOP_RESET = 10800  # 3h
-        
+
 def load():
     try:
         if os.path.exists(FILE):
@@ -505,16 +504,16 @@ class MainView(discord.ui.View):
         price = BRAWLER_PRICES[rarity]
 
         # ⏳ countdown
-        remaining = shop["reset_time"] - int(time.time())
-        hours = remaining // 3600
-        minutes = (remaining % 3600) // 60
+    remaining = shop["reset_time"] - int(time.time())
+    hours = remaining // 3600
+    minutes = (remaining % 3600) // 60
 
-        embed = discord.Embed(title="🛒 Shop")
-        embed.description = (
-            f"📦 Box — {SHOP['box']['price']} coins (1/jour)\n\n"
-            f"🔥 Brawler du jour:\n{daily} — {price} coins\n\n"
-            f"⏳ Reset dans data["shop"]["reset_time"] = now + SHOP_RESET"
-        )
+    embed = discord.Embed(title="🛒 Shop")
+    embed.description = (
+        f"📦 Box — {SHOP['box']['price']} coins (1/jour)\n\n"
+        f"🔥 Brawler du jour:\n{daily} — {price} coins\n\n"
+        f"⏳ Reset dans {hours}h {minutes}m"
+    )
         await i.response.send_message(
             embed=embed,
             view=ShopView(self.user),

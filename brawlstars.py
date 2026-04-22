@@ -514,10 +514,10 @@ class MainView(discord.ui.View):
         f"🔥 Brawler du jour:\n{daily} — {price} coins\n\n"
         f"⏳ Reset dans {hours}h {minutes}m"
     )
-        await i.response.send_message(
-            embed=embed,
-            view=ShopView(self.user),
-            ephemeral=True
+    await i.response.send_message(
+        embed=embed,
+        view=ShopView(self.user),
+        ephemeral=True
         )
 # ---------- LEADERBOARD ---------- #
 

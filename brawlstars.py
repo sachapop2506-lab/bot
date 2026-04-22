@@ -547,8 +547,20 @@ class LeaderboardView(discord.ui.View):
         
 class ShopView(discord.ui.View):
     def __init__(self, user):
-        super().__init__(timeout=60)
-        self.user = user
+    super().__init__(timeout=60)
+    self.user = user
+
+    data = load()
+    p = get_player(data, str(user.id))
+
+    import time
+    now = int(time.time())
+
+    # 🔴 désactiver bouton si cooldown ou pas assez de coins
+    for item in self.children:
+        if item.label == "Acheter Box":
+            if now - p["last_box_buy"] < 86400 or p["coins"] < SHOP["box"]["price"]:
+                item.disabled = True
 
     async def interaction_check(self, i: discord.Interaction):
         if i.user.id != self.user.id:
@@ -637,11 +649,13 @@ class ShopView(discord.ui.View):
 
         save(data)
 
-        # 🔥 APRÈS
-        after = p["boxes"]
+        # ✅ REFRESH DU JEU
+        view = MainView(i.user)
+        view.add_item(BrawlerSelect(p))
 
         await i.followup.send(
-            f"DEBUG:\nAvant: {before}\nAprès: {after}",
+            embed=create_embed(p, "📦 Box achetée"),
+            view=view,
             ephemeral=True
         )
 # ---------- COG ---------- #

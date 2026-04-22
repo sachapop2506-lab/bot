@@ -592,6 +592,9 @@ class ShopView(discord.ui.View):
         rarity = BRAWLERS[brawler]["rarity"]
         price = BRAWLER_PRICES[rarity]
 
+        if brawler in p["brawlers"]:
+            return await i.response.send_message("❌ Déjà débloqué", ephemeral=True)
+
         if p["coins"] < price:
             return await i.response.send_message("Pas assez", ephemeral=True)
 

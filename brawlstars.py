@@ -596,7 +596,7 @@ class ShopView(discord.ui.View):
 
         now = int(time.time())
 
-        # cooldown 24h
+    # cooldown 24h
         if now - p["last_box_buy"] < 86400:
             remaining = 86400 - (now - p["last_box_buy"])
             hours = remaining // 3600
@@ -625,20 +625,6 @@ class ShopView(discord.ui.View):
             "📦 Box achetée (1/jour)",
             ephemeral=True
         )
-
-    # achat
-    p["coins"] -= SHOP["box"]["price"]
-    p["boxes"] += 1
-    p["last_box_buy"] = now
-
-    save(data)
-
-    await i.response.send_message(
-        "📦 Box achetée (1/jour)",
-        ephemeral=True
-    )
-
-
 # ---------- COG ---------- #
 
 class BSGame(commands.GroupCog, name="bs"):

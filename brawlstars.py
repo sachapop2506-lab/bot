@@ -547,20 +547,20 @@ class LeaderboardView(discord.ui.View):
         
 class ShopView(discord.ui.View):
     def __init__(self, user):
-    super().__init__(timeout=60)
-    self.user = user
+        super().__init__(timeout=60)
+        self.user = user
 
-    data = load()
-    p = get_player(data, str(user.id))
+        data = load()
+        p = get_player(data, str(user.id))
 
-    import time
-    now = int(time.time())
+        import time
+        now = int(time.time())
 
-    # 🔴 désactiver bouton si cooldown ou pas assez de coins
-    for item in self.children:
-        if item.label == "Acheter Box":
-            if now - p["last_box_buy"] < 86400 or p["coins"] < SHOP["box"]["price"]:
-                item.disabled = True
+        # 🔴 désactiver bouton si cooldown ou pas assez de coins
+        for item in self.children:
+            if isinstance(item, discord.ui.Button) and item.label == "Acheter Box":
+                if now - p.get("last_box_buy", 0) < 86400 or p["coins"] < SHOP["box"]["price"]:
+                    item.disabled = True
 
     async def interaction_check(self, i: discord.Interaction):
         if i.user.id != self.user.id:
@@ -595,7 +595,7 @@ class ShopView(discord.ui.View):
         save(data)
         await i.response.send_message(msg, ephemeral=True)
 
-    # 📦 ACHETER BOX (FIX)
+    # 📦 ACHETER BOX
     @discord.ui.button(label="Acheter Box", style=discord.ButtonStyle.primary)
     async def buy_box(self, i: discord.Interaction, _):
         import time
@@ -603,21 +603,7 @@ class ShopView(discord.ui.View):
         await i.response.defer(ephemeral=True)
 
         data = load()
-
-        uid = str(i.user.id)
-
-    # 🔥 sécurité joueur
-        if uid not in data:
-            data[uid] = {
-                "coins": 0,
-                "trophies": 0,
-                "boxes": 0,
-                "selected": "Shelly",
-                "brawlers": {"Shelly": {"level": 1}},
-                "last_box_buy": 0
-            }
-
-        p = data[uid]
+        p = get_player(data, str(i.user.id))
 
         now = int(time.time())
 
@@ -639,9 +625,6 @@ class ShopView(discord.ui.View):
                 ephemeral=True
             )
 
-        # 🔥 AVANT
-        before = p["boxes"]
-
         # achat
         p["coins"] -= SHOP["box"]["price"]
         p["boxes"] += 1
@@ -649,7 +632,7 @@ class ShopView(discord.ui.View):
 
         save(data)
 
-        # ✅ REFRESH DU JEU
+        # refresh UI
         view = MainView(i.user)
         view.add_item(BrawlerSelect(p))
 

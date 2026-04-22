@@ -591,25 +591,44 @@ class ShopView(discord.ui.View):
         await i.response.defer(ephemeral=True)
 
         data = load()
-        user_id = str(i.user.id)
-        p = get_player(data, str(i.user.id))
+
+        uid = str(i.user.id)
+
+    # 🔥 sécurité joueur
+        if uid not in data:
+            data[uid] = {
+                "coins": 0,
+                "trophies": 0,
+                "boxes": 0,
+                "selected": "Shelly",
+                "brawlers": {"Shelly": {"level": 1}},
+                "last_box_buy": 0
+            }
+
+        p = data[uid]
 
         now = int(time.time())
-    
+
         # cooldown
-        if now - p["last_box_buy"] < 86400:
+        if now - p.get("last_box_buy", 0) < 86400:
             remaining = 86400 - (now - p["last_box_buy"])
             h = remaining // 3600
             m = (remaining % 3600) // 60
 
             return await i.followup.send(
-                f"⏳ Déjà acheté aujourd'hui\nRéessaie dans {h}h {m}m",
+                f"⏳ Cooldown\n{h}h {m}m",
                 ephemeral=True
             )
 
-        # pas assez
+        # coins
         if p["coins"] < SHOP["box"]["price"]:
-            return await i.followup.send("❌ Pas assez de coins", ephemeral=True)
+            return await i.followup.send(
+                f"❌ Coins insuffisants ({p['coins']})",
+                ephemeral=True
+            )
+
+        # 🔥 AVANT
+        before = p["boxes"]
 
         # achat
         p["coins"] -= SHOP["box"]["price"]
@@ -618,9 +637,11 @@ class ShopView(discord.ui.View):
 
         save(data)
 
-        # DEBUG VISUEL
+        # 🔥 APRÈS
+        after = p["boxes"]
+
         await i.followup.send(
-            f"✅ Achat OK\n📦 Boxes: {p['boxes']}\n💰 Coins: {p['coins']}",
+            f"DEBUG:\nAvant: {before}\nAprès: {after}",
             ephemeral=True
         )
 # ---------- COG ---------- #

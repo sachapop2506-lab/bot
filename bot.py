@@ -43,7 +43,7 @@ async def main():
             "brawlstars",
             "fun",
             "trigger_system",
-            "auto_react"
+            "fake_ban"
         ]
 
         for ext in extensions:

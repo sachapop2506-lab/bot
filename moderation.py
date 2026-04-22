@@ -5,11 +5,12 @@ import json
 import os
 import re
 import asyncio
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timezone
 from collections import defaultdict
 from utils import data_path
 
 WARNS_FILE = data_path("warns.json")
+ALLOWED_LINKS_FILE = data_path("allowed_links.json")
 
 URL_PATTERN = re.compile(
     r"(https?://|www\.)\S+|discord\.gg/\S+",
@@ -22,6 +23,8 @@ MAX_WARNS = 3
 BAN_DURATION = 3600
 
 
+# ---------- WARNS ---------- #
+
 def load_warns() -> dict:
     if os.path.exists(WARNS_FILE):
         with open(WARNS_FILE, "r") as f:
@@ -32,11 +35,6 @@ def load_warns() -> dict:
 def save_warns(data: dict):
     with open(WARNS_FILE, "w") as f:
         json.dump(data, f, indent=2)
-
-
-def get_warn_count(guild_id: str, user_id: str) -> int:
-    warns = load_warns()
-    return len(warns.get(guild_id, {}).get(user_id, []))
 
 
 def add_warn(guild_id: str, user_id: str, reason: str, mod_id: str) -> int:
@@ -58,10 +56,46 @@ def clear_warns(guild_id: str, user_id: str):
         save_warns(warns)
 
 
+# ---------- ALLOWED LINKS ---------- #
+
+def load_allowed_links() -> dict:
+    if os.path.exists(ALLOWED_LINKS_FILE):
+        with open(ALLOWED_LINKS_FILE, "r") as f:
+            return json.load(f)
+    return {}
+
+
+def save_allowed_links(data: dict):
+    with open(ALLOWED_LINKS_FILE, "w") as f:
+        json.dump(data, f, indent=2)
+
+
+def get_allowed_links(guild_id: str) -> list:
+    data = load_allowed_links()
+    return data.get(guild_id, [])
+
+
+def add_allowed_link(guild_id: str, link: str):
+    data = load_allowed_links()
+    data.setdefault(guild_id, [])
+    if link not in data[guild_id]:
+        data[guild_id].append(link)
+    save_allowed_links(data)
+
+
+def remove_allowed_link(guild_id: str, link: str):
+    data = load_allowed_links()
+    if guild_id in data and link in data[guild_id]:
+        data[guild_id].remove(link)
+        save_allowed_links(data)
+
+
+# ---------- COG ---------- #
+
 class ModerationCog(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
-        self.spam_tracker: dict[str, list[float]] = defaultdict(list)
+        self.spam_tracker = defaultdict(list)
 
     def is_staff(self, member: discord.Member) -> bool:
         return (
@@ -69,56 +103,45 @@ class ModerationCog(commands.Cog):
             or member.guild_permissions.administrator
         )
 
-    async def apply_warn(self, member: discord.Member, reason: str, mod_id: str, channel: discord.TextChannel = None):
+    async def apply_warn(self, member, reason, mod_id, channel=None):
         guild_id = str(member.guild.id)
         user_id = str(member.id)
         count = add_warn(guild_id, user_id, reason, mod_id)
 
         try:
             await member.send(
-                f"⚠️ Tu as reçu un avertissement sur **{member.guild.name}**.\n"
+                f"⚠️ Avertissement sur **{member.guild.name}**\n"
                 f"Raison : **{reason}**\n"
-                f"Avertissements : **{count}/{MAX_WARNS}**"
+                f"{count}/{MAX_WARNS}"
             )
-        except discord.Forbidden:
+        except:
             pass
 
         if channel:
             await channel.send(
-                f"⚠️ {member.mention} a reçu un avertissement. ({count}/{MAX_WARNS}) — {reason}",
-                delete_after=8,
+                f"⚠️ {member.mention} averti ({count}/{MAX_WARNS}) — {reason}",
+                delete_after=8
             )
 
         if count >= MAX_WARNS:
             clear_warns(guild_id, user_id)
-            try:
-                await member.send(
-                    f"🔨 Tu as été banni temporairement de **{member.guild.name}** pour 1 heure "
-                    f"(3 avertissements atteints)."
-                )
-            except discord.Forbidden:
-                pass
 
             try:
-                await member.ban(
-                    reason=f"3 avertissements atteints (dernier: {reason})",
-                    delete_message_days=0,
-                )
-            except discord.Forbidden:
-                if channel:
-                    await channel.send("❌ Je n'ai pas la permission de bannir ce membre.", delete_after=5)
+                await member.ban(reason="3 warns", delete_message_days=0)
+            except:
                 return
 
             if channel:
                 await channel.send(
-                    f"🔨 {member.mention} a été banni pour 1 heure (3 avertissements atteints).",
-                    delete_after=10,
+                    f"🔨 {member.mention} banni 1h (3 warns)",
+                    delete_after=10
                 )
 
             await asyncio.sleep(BAN_DURATION)
+
             try:
-                await member.guild.unban(member, reason="Ban temporaire expiré")
-            except Exception:
+                await member.guild.unban(member)
+            except:
                 pass
 
     @commands.Cog.listener()
@@ -128,102 +151,94 @@ class ModerationCog(commands.Cog):
         if self.is_staff(message.author):
             return
 
-        deleted = False
-
+        # -------- ANTI LINK -------- #
         if URL_PATTERN.search(message.content):
+            allowed = get_allowed_links(str(message.guild.id))
+
+            if any(site in message.content.lower() for site in allowed):
+                return
+
             try:
                 await message.delete()
-                deleted = True
-            except discord.Forbidden:
+            except:
                 pass
+
             asyncio.create_task(
-                self.apply_warn(message.author, "Envoi de lien interdit", str(self.bot.user.id), message.channel)
+                self.apply_warn(
+                    message.author,
+                    "Lien interdit",
+                    str(self.bot.user.id),
+                    message.channel
+                )
             )
             return
 
+        # -------- ANTI SPAM -------- #
         key = f"{message.guild.id}:{message.author.id}"
         now = message.created_at.timestamp()
-        self.spam_tracker[key] = [t for t in self.spam_tracker[key] if now - t < SPAM_WINDOW]
+
+        self.spam_tracker[key] = [
+            t for t in self.spam_tracker[key]
+            if now - t < SPAM_WINDOW
+        ]
         self.spam_tracker[key].append(now)
 
         if len(self.spam_tracker[key]) > MAX_MESSAGES:
             self.spam_tracker[key] = []
+
             try:
                 await message.delete()
-                deleted = True
-            except discord.Forbidden:
+            except:
                 pass
 
-            async def purge_spam():
-                def is_spam(m):
-                    return m.author == message.author
-                try:
-                    await message.channel.purge(limit=MAX_MESSAGES + 2, check=is_spam)
-                except Exception:
-                    pass
-
-            asyncio.create_task(purge_spam())
             asyncio.create_task(
-                self.apply_warn(message.author, "Spam détecté", str(self.bot.user.id), message.channel)
+                self.apply_warn(
+                    message.author,
+                    "Spam",
+                    str(self.bot.user.id),
+                    message.channel
+                )
             )
 
-    mod_group = app_commands.Group(name="mod", description="Commandes de modération")
+    # ---------- COMMANDES ---------- #
 
-    @mod_group.command(name="warn", description="Avertir un membre")
-    @app_commands.describe(membre="Le membre à avertir", raison="Raison de l'avertissement")
+    mod_group = app_commands.Group(name="mod", description="Modération")
+
+    @mod_group.command(name="allowlink")
     @app_commands.checks.has_permissions(manage_messages=True)
-    async def warn(self, interaction: discord.Interaction, membre: discord.Member, raison: str = "Aucune raison"):
-        if membre.bot:
-            await interaction.response.send_message("❌ Impossible d'avertir un bot.", ephemeral=True)
-            return
-        if self.is_staff(membre):
-            await interaction.response.send_message("❌ Impossible d'avertir un membre du staff.", ephemeral=True)
-            return
+    async def allowlink(self, interaction: discord.Interaction, site: str):
+        site = site.lower().replace("https://", "").replace("http://", "").strip("/")
+        add_allowed_link(str(interaction.guild_id), site)
 
-        await interaction.response.send_message("⏳ Avertissement en cours...", ephemeral=True)
-        asyncio.create_task(
-            self.apply_warn(membre, raison, str(interaction.user.id), interaction.channel)
-        )
-
-    @mod_group.command(name="warns", description="Voir les avertissements d'un membre")
-    @app_commands.describe(membre="Le membre à vérifier")
-    @app_commands.checks.has_permissions(manage_messages=True)
-    async def warns(self, interaction: discord.Interaction, membre: discord.Member):
-        data = load_warns()
-        user_warns = data.get(str(interaction.guild_id), {}).get(str(membre.id), [])
-
-        embed = discord.Embed(
-            title=f"Avertissements de {membre}",
-            color=discord.Color.orange() if user_warns else discord.Color.green(),
-        )
-        if user_warns:
-            for i, w in enumerate(user_warns, 1):
-                ts = w.get("timestamp", "")[:10]
-                embed.add_field(
-                    name=f"Warn #{i} — {ts}",
-                    value=w.get("reason", "Aucune raison"),
-                    inline=False,
-                )
-        else:
-            embed.description = "✅ Aucun avertissement."
-        embed.set_footer(text=f"{len(user_warns)}/{MAX_WARNS} avertissements")
-        await interaction.response.send_message(embed=embed, ephemeral=True)
-
-    @mod_group.command(name="clearwarns", description="Effacer les avertissements d'un membre")
-    @app_commands.describe(membre="Le membre dont on efface les warns")
-    @app_commands.checks.has_permissions(manage_messages=True)
-    async def clearwarns(self, interaction: discord.Interaction, membre: discord.Member):
-        clear_warns(str(interaction.guild_id), str(membre.id))
         await interaction.response.send_message(
-            f"✅ Avertissements de {membre.mention} réinitialisés.", ephemeral=True
+            f"✅ Autorisé : `{site}`",
+            ephemeral=True
         )
 
-    @warn.error
-    @warns.error
-    @clearwarns.error
-    async def mod_error(self, interaction: discord.Interaction, error):
-        if isinstance(error, app_commands.MissingPermissions):
-            await interaction.response.send_message("❌ Permission `Gérer les messages` requise.", ephemeral=True)
+    @mod_group.command(name="removelink")
+    @app_commands.checks.has_permissions(manage_messages=True)
+    async def removelink(self, interaction: discord.Interaction, site: str):
+        site = site.lower().replace("https://", "").replace("http://", "").strip("/")
+        remove_allowed_link(str(interaction.guild_id), site)
+
+        await interaction.response.send_message(
+            f"🗑️ Retiré : `{site}`",
+            ephemeral=True
+        )
+
+    @mod_group.command(name="listlinks")
+    @app_commands.checks.has_permissions(manage_messages=True)
+    async def listlinks(self, interaction: discord.Interaction):
+        links = get_allowed_links(str(interaction.guild_id))
+
+        if not links:
+            await interaction.response.send_message("❌ Aucun site.", ephemeral=True)
+            return
+
+        await interaction.response.send_message(
+            "🔗 Sites autorisés :\n" + "\n".join(f"- {l}" for l in links),
+            ephemeral=True
+        )
 
 
 async def setup(bot: commands.Bot):

@@ -611,18 +611,18 @@ class ShopView(discord.ui.View):
         await i.followup.send("📦 Box achetée (1/jour)", ephemeral=True)
 
     # 📦 ACHETER BOX
- @discord.ui.button(label="Acheter Box", style=discord.ButtonStyle.primary)
+# 📦 ACHETER BOX
+@discord.ui.button(label="Acheter Box", style=discord.ButtonStyle.primary)
 async def buy_box(self, i: discord.Interaction, _):
     import time
 
-    await i.response.defer(ephemeral=True)  # 🔥 OBLIGATOIRE
+    await i.response.defer(ephemeral=True)
 
     data = load()
     p = get_player(data, str(self.user.id))
 
     now = int(time.time())
 
-    # cooldown
     if now - p["last_box_buy"] < 86400:
         remaining = 86400 - (now - p["last_box_buy"])
         hours = remaining // 3600
@@ -632,11 +632,9 @@ async def buy_box(self, i: discord.Interaction, _):
             ephemeral=True
         )
 
-    # pas assez d'argent
     if p["coins"] < SHOP["box"]["price"]:
         return await i.followup.send("Pas assez", ephemeral=True)
 
-    # achat
     p["coins"] -= SHOP["box"]["price"]
     p["boxes"] += 1
     p["last_box_buy"] = now

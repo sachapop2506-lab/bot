@@ -587,36 +587,44 @@ class ShopView(discord.ui.View):
         await i.response.send_message(msg, ephemeral=True)
 
     # 📦 ACHETER BOX (FIX)
-    @discord.ui.button(label="Acheter Box", style=discord.ButtonStyle.primary)
-    async def buy_box(self, i: discord.Interaction, _):
-        import time
+@discord.ui.button(label="Acheter Box", style=discord.ButtonStyle.primary)
+async def buy_box(self, i: discord.Interaction, _):
+    import time
 
-        await i.response.defer(ephemeral=True)
+    data = load()
+    p = get_player(data, str(self.user.id))
 
-        data = load()
-        p = get_player(data, str(self.user.id))
+    now = int(time.time())
 
-        now = int(time.time())
+    # cooldown
+    if now - p["last_box_buy"] < 86400:
+        remaining = 86400 - (now - p["last_box_buy"])
+        hours = remaining // 3600
+        minutes = (remaining % 3600) // 60
 
-        if now - p["last_box_buy"] < 86400:
-            remaining = 86400 - (now - p["last_box_buy"])
-            hours = remaining // 3600
+        return await i.response.send_message(
+            f"⏳ Déjà acheté aujourd'hui\nRéessaie dans {hours}h {minutes}m",
+            ephemeral=True
+        )
 
-            return await i.followup.send(
-                f"⏳ Déjà acheté aujourd'hui\nRéessaie dans {hours}h",
-                ephemeral=True
-            )
+    # pas assez d'argent
+    if p["coins"] < SHOP["box"]["price"]:
+        return await i.response.send_message(
+            "❌ Pas assez de coins",
+            ephemeral=True
+        )
 
-        if p["coins"] < SHOP["box"]["price"]:
-            return await i.followup.send("Pas assez", ephemeral=True)
+    # achat
+    p["coins"] -= SHOP["box"]["price"]
+    p["boxes"] += 1
+    p["last_box_buy"] = now
 
-        p["coins"] -= SHOP["box"]["price"]
-        p["boxes"] += 1
-        p["last_box_buy"] = now
+    save(data)
 
-        save(data)
-
-        await i.followup.send("📦 Box achetée (1/jour)", ephemeral=True)
+    await i.response.send_message(
+        "📦 Box achetée (1/jour)",
+        ephemeral=True
+    )
 
 
 # ---------- COG ---------- #

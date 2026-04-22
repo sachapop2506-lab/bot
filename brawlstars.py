@@ -489,6 +489,7 @@ class MainView(discord.ui.View):
         )
 
     # 🛒 SHOP
+   
     @discord.ui.button(label="Shop", emoji="🛒", style=discord.ButtonStyle.secondary)
     async def shop(self, i: discord.Interaction, _):
         import time
@@ -504,20 +505,21 @@ class MainView(discord.ui.View):
         price = BRAWLER_PRICES[rarity]
 
         # ⏳ countdown
-    remaining = shop["reset_time"] - int(time.time())
-    hours = remaining // 3600
-    minutes = (remaining % 3600) // 60
+        remaining = shop["reset_time"] - int(time.time())
+        hours = remaining // 3600
+        minutes = (remaining % 3600) // 60
 
-    embed = discord.Embed(title="🛒 Shop")
-    embed.description = (
-        f"📦 Box — {SHOP['box']['price']} coins (1/jour)\n\n"
-        f"🔥 Brawler du jour:\n{daily} — {price} coins\n\n"
-        f"⏳ Reset dans {hours}h {minutes}m"
-    )
-    await i.response.send_message(
-        embed=embed,
-        view=ShopView(self.user),
-        ephemeral=True
+        embed = discord.Embed(title="🛒 Shop")
+        embed.description = (
+            f"📦 Box — {SHOP['box']['price']} coins (1/jour)\n\n"
+            f"🔥 Brawler du jour:\n{daily} — {price} coins\n\n"
+            f"⏳ Reset dans {hours}h {minutes}m"
+        )
+
+        await i.response.send_message(
+            embed=embed,
+            view=ShopView(self.user),
+            ephemeral=True
         )
 # ---------- LEADERBOARD ---------- #
 

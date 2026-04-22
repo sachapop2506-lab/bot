@@ -202,100 +202,111 @@ class ModerationCog(commands.Cog):
 
 # ---------- COMMANDES ---------- #
 
-mod_group = app_commands.Group(name="mod", description="Modération")
+class ModerationCog(commands.Cog):
+    def __init__(self, bot: commands.Bot):
+        self.bot = bot
+        self.spam_tracker = defaultdict(list)
 
-@mod_group.command(name="allowlink")
-@app_commands.checks.has_permissions(manage_messages=True)
-async def allowlink(self, interaction: discord.Interaction, site: str):
-    site = site.lower().replace("https://", "").replace("http://", "").strip("/")
-    add_allowed_link(str(interaction.guild_id), site)
+    def is_staff(self, member: discord.Member) -> bool:
+        return (
+            member.guild_permissions.manage_messages
+            or member.guild_permissions.administrator
+        )
 
-    await interaction.response.send_message(
-        f"✅ Autorisé : `{site}`",
-        ephemeral=True
-    )
+    # -------- GROUP -------- #
+    mod_group = app_commands.Group(name="mod", description="Modération")
 
-@mod_group.command(name="removelink")
-@app_commands.checks.has_permissions(manage_messages=True)
-async def removelink(self, interaction: discord.Interaction, site: str):
-    site = site.lower().replace("https://", "").replace("http://", "").strip("/")
-    remove_allowed_link(str(interaction.guild_id), site)
+    # -------- LINKS -------- #
 
-    await interaction.response.send_message(
-        f"🗑️ Retiré : `{site}`",
-        ephemeral=True
-    )
+    @mod_group.command(name="allowlink")
+    @app_commands.checks.has_permissions(manage_messages=True)
+    async def allowlink(self, interaction, site: str):
+        site = site.lower().replace("https://", "").replace("http://", "").strip("/")
+        add_allowed_link(str(interaction.guild_id), site)
 
-@mod_group.command(name="listlinks")
-@app_commands.checks.has_permissions(manage_messages=True)
-async def listlinks(self, interaction: discord.Interaction):
-    links = get_allowed_links(str(interaction.guild_id))
-
-    if not links:
-        await interaction.response.send_message("❌ Aucun site.", ephemeral=True)
-        return
-
-    await interaction.response.send_message(
-        "🔗 Sites autorisés :\n" + "\n".join(f"- {l}" for l in links),
-        ephemeral=True
-    )
-
-# ---------- WARN COMMANDES ---------- #
-
-@mod_group.command(name="warn")
-@app_commands.checks.has_permissions(manage_messages=True)
-async def warn(self, interaction: discord.Interaction, member: discord.Member, reason: str):
-    await interaction.response.defer(ephemeral=True)
-
-    await self.apply_warn(
-        member,
-        reason,
-        str(interaction.user.id),
-        interaction.channel
-    )
-
-    await interaction.followup.send(
-        f"⚠️ {member.mention} a été averti.",
-        ephemeral=True
-    )
-
-
-@mod_group.command(name="warns")
-@app_commands.checks.has_permissions(manage_messages=True)
-async def warns_cmd(self, interaction: discord.Interaction, member: discord.Member):
-    warns = load_warns()
-    guild_id = str(interaction.guild_id)
-    user_id = str(member.id)
-
-    user_warns = warns.get(guild_id, {}).get(user_id, [])
-
-    if not user_warns:
         await interaction.response.send_message(
-            "✅ Aucun avertissement.",
+            f"✅ Autorisé : `{site}`",
             ephemeral=True
         )
-        return
 
-    msg = "\n".join(
-        f"{i+1}. {w['reason']}" for i, w in enumerate(user_warns)
-    )
+    @mod_group.command(name="removelink")
+    @app_commands.checks.has_permissions(manage_messages=True)
+    async def removelink(self, interaction, site: str):
+        site = site.lower().replace("https://", "").replace("http://", "").strip("/")
+        remove_allowed_link(str(interaction.guild_id), site)
 
-    await interaction.response.send_message(
-        f"⚠️ Warns de {member.mention} :\n{msg}",
-        ephemeral=True
-    )
+        await interaction.response.send_message(
+            f"🗑️ Retiré : `{site}`",
+            ephemeral=True
+        )
 
+    @mod_group.command(name="listlinks")
+    @app_commands.checks.has_permissions(manage_messages=True)
+    async def listlinks(self, interaction):
+        links = get_allowed_links(str(interaction.guild_id))
 
-@mod_group.command(name="clearwarns")
-@app_commands.checks.has_permissions(manage_messages=True)
-async def clearwarns_cmd(self, interaction: discord.Interaction, member: discord.Member):
-    clear_warns(str(interaction.guild_id), str(member.id))
+        if not links:
+            await interaction.response.send_message("❌ Aucun site.", ephemeral=True)
+            return
 
-    await interaction.response.send_message(
-        f"🧹 Warns de {member.mention} supprimés.",
-        ephemeral=True
-    )
+        await interaction.response.send_message(
+            "🔗 Sites autorisés :\n" + "\n".join(f"- {l}" for l in links),
+            ephemeral=True
+        )
 
+    # -------- WARNS -------- #
+
+    @mod_group.command(name="warn")
+    @app_commands.checks.has_permissions(manage_messages=True)
+    async def warn(self, interaction, member: discord.Member, reason: str):
+        await interaction.response.defer(ephemeral=True)
+
+        await self.apply_warn(
+            member,
+            reason,
+            str(interaction.user.id),
+            interaction.channel
+        )
+
+        await interaction.followup.send(
+            f"⚠️ {member.mention} a été averti.",
+            ephemeral=True
+        )
+
+    @mod_group.command(name="warns")
+    @app_commands.checks.has_permissions(manage_messages=True)
+    async def warns_cmd(self, interaction, member: discord.Member):
+        warns = load_warns()
+        guild_id = str(interaction.guild_id)
+        user_id = str(member.id)
+
+        user_warns = warns.get(guild_id, {}).get(user_id, [])
+
+        if not user_warns:
+            await interaction.response.send_message(
+                "✅ Aucun avertissement.",
+                ephemeral=True
+            )
+            return
+
+        msg = "\n".join(
+            f"{i+1}. {w['reason']}" for i, w in enumerate(user_warns)
+        )
+
+        await interaction.response.send_message(
+            f"⚠️ Warns de {member.mention} :\n{msg}",
+            ephemeral=True
+        )
+
+    @mod_group.command(name="clearwarns")
+    @app_commands.checks.has_permissions(manage_messages=True)
+    async def clearwarns_cmd(self, interaction, member: discord.Member):
+        clear_warns(str(interaction.guild_id), str(member.id))
+
+        await interaction.response.send_message(
+            f"🧹 Warns de {member.mention} supprimés.",
+            ephemeral=True
+        )
 
 async def setup(bot: commands.Bot):
     await bot.add_cog(ModerationCog(bot))

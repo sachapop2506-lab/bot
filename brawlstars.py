@@ -491,29 +491,45 @@ class MainView(discord.ui.View):
         )
 
     # 🛒 SHOP
-    @discord.ui.button(label="Shop", emoji="🛒", style=discord.ButtonStyle.secondary)
-    async def shop(self, i: discord.Interaction, _):
-        data = load()
-        check_daily_shop(data)
-        save(data)
+@discord.ui.button(label="Shop", emoji="🛒", style=discord.ButtonStyle.secondary)
+async def shop(self, i: discord.Interaction, _):
+    import time
 
-        daily = data["shop"].get("daily_brawler")
+    data = load()
+    check_daily_shop(data)
+    save(data)
 
-        rarity = BRAWLERS[daily]["rarity"]
-        price = BRAWLER_PRICES[rarity]
+    shop = data["shop"]
 
-        embed = discord.Embed(title="🛒 Shop")
-        embed.description = (
-            f"📦 Box — {SHOP['box']['price']} coins (1/jour)\n"
-            f"🎁 Big Box — {SHOP['bigbox']['price']} coins\n\n"
-            f"🔥 Brawler du jour:\n{daily} — {price} coins"
-        )
+    daily = shop.get("daily_brawler")
+    reset_time = shop.get("reset_time", int(time.time()))
 
-        await i.response.send_message(
-            embed=embed,
-            view=ShopView(self.user),
-            ephemeral=True
-        )
+    # ⏳ calcul du temps restant
+    remaining = 86400 - (int(time.time()) - reset_time)
+
+    if remaining < 0:
+        remaining = 0
+
+    hours = remaining // 3600
+    minutes = (remaining % 3600) // 60
+
+    rarity = BRAWLERS[daily]["rarity"]
+    price = BRAWLER_PRICES[rarity]
+
+    embed = discord.Embed(title="🛒 Shop")
+
+    embed.description = (
+        f"📦 Box — {SHOP['box']['price']} coins (1/jour)\n"
+        f"🎁 Big Box — {SHOP['bigbox']['price']} coins\n\n"
+        f"🔥 Brawler du jour:\n{daily} — {price} coins\n\n"
+        f"⏳ Reset dans: **{hours}h {minutes}m**"
+    )
+
+    await i.response.send_message(
+        embed=embed,
+        view=ShopView(self.user),
+        ephemeral=True
+    )
 # ---------- LEADERBOARD ---------- #
 
 class LeaderboardView(discord.ui.View):

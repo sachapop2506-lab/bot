@@ -17,10 +17,9 @@ def check_daily_shop(data):
     if "shop" not in data:
         data["shop"] = {}
 
-    # reset toutes les 24h
-    if "reset_time" not in data["shop"] or now - data["shop"]["reset_time"] > 86400:
+    if "reset_time" not in data["shop"] or now >= data["shop"]["reset_time"]:
         data["shop"]["daily_brawler"] = get_daily_brawler()
-        data["shop"]["reset_time"] = now
+        data["shop"]["reset_time"] = now + 86400  # reset dans 24h
         
 def load():
     try:
@@ -500,29 +499,22 @@ async def shop(self, i: discord.Interaction, _):
     save(data)
 
     shop = data["shop"]
-
     daily = shop.get("daily_brawler")
-    reset_time = shop.get("reset_time", int(time.time()))
-
-    # ⏳ calcul du temps restant
-    remaining = 86400 - (int(time.time()) - reset_time)
-
-    if remaining < 0:
-        remaining = 0
-
-    hours = remaining // 3600
-    minutes = (remaining % 3600) // 60
 
     rarity = BRAWLERS[daily]["rarity"]
     price = BRAWLER_PRICES[rarity]
 
-    embed = discord.Embed(title="🛒 Shop")
+    # ⏳ countdown
+    remaining = shop["reset_time"] - int(time.time())
+    hours = remaining // 3600
+    minutes = (remaining % 3600) // 60
 
+    embed = discord.Embed(title="🛒 Shop")
     embed.description = (
         f"📦 Box — {SHOP['box']['price']} coins (1/jour)\n"
         f"🎁 Big Box — {SHOP['bigbox']['price']} coins\n\n"
         f"🔥 Brawler du jour:\n{daily} — {price} coins\n\n"
-        f"⏳ Reset dans: **{hours}h {minutes}m**"
+        f"⏳ Reset dans {hours}h {minutes}m"
     )
 
     await i.response.send_message(
@@ -626,38 +618,7 @@ class ShopView(discord.ui.View):
 
         await i.followup.send("📦 Box achetée (1/jour)", ephemeral=True)
 
-    # 📦 ACHETER BOX
-# 📦 ACHETER BOX
-@discord.ui.button(label="Acheter Box", style=discord.ButtonStyle.primary)
-async def buy_box(self, i: discord.Interaction, _):
-    import time
 
-    await i.response.defer(ephemeral=True)
-
-    data = load()
-    p = get_player(data, str(self.user.id))
-
-    now = int(time.time())
-
-    if now - p["last_box_buy"] < 86400:
-        remaining = 86400 - (now - p["last_box_buy"])
-        hours = remaining // 3600
-
-        return await i.followup.send(
-            f"⏳ Déjà acheté aujourd'hui\nRéessaie dans {hours}h",
-            ephemeral=True
-        )
-
-    if p["coins"] < SHOP["box"]["price"]:
-        return await i.followup.send("Pas assez", ephemeral=True)
-
-    p["coins"] -= SHOP["box"]["price"]
-    p["boxes"] += 1
-    p["last_box_buy"] = now
-
-    save(data)
-
-    await i.followup.send("📦 Box achetée (1/jour)", ephemeral=True)
 # ---------- COG ---------- #
 
 class BSGame(commands.GroupCog, name="bs"):

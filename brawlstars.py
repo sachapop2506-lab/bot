@@ -349,7 +349,57 @@ class BrawlerSelect(discord.ui.Select):
         await i.response.edit_message(embed=create_embed(p, "Switch"), view=view)
 
 # ---------- VIEW ---------- #
+# ---------- TUTORIAL VIEW ---------- #
 
+class TutorialView(discord.ui.View):
+    def __init__(self, user):
+        super().__init__(timeout=120)
+        self.user = user
+        self.page = 0
+
+        self.pages = [
+            ("🎮 Bienvenue", "Bienvenue ! Utilise /bs play pour commencer."),
+            ("👊 Click", "Clique pour gagner coins + trophées."),
+            ("🎁 Box", "Ouvre des box pour rewards et brawlers."),
+            ("⬆️ Upgrade", "Améliore ton brawler (max lvl 11)."),
+            ("🧑‍🎤 Brawlers", "Chaque brawler a un rôle + rareté."),
+            ("🧠 Rôles", "Chaque rôle donne des bonus différents."),
+            ("🛒 Shop", "Achète box et brawler du jour."),
+            ("🎯 Quêtes", "/bs quest pour gagner des coins."),
+            ("🏆 Classement", "/bs leaderboard pour voir les meilleurs."),
+            ("🚀 Fin", "Tu es prêt à jouer ! 🔥")
+        ]
+
+    def get_embed(self):
+        title, desc = self.pages[self.page]
+
+        return discord.Embed(
+            title=f"{title} ({self.page+1}/{len(self.pages)})",
+            description=desc,
+            color=0x2ecc71
+        )
+
+    async def interaction_check(self, i: discord.Interaction):
+        if i.user.id != self.user.id:
+            await i.response.send_message("Pas pour toi", ephemeral=True)
+            return False
+        return True
+
+    @discord.ui.button(label="⬅️", style=discord.ButtonStyle.secondary)
+    async def prev(self, i: discord.Interaction, _):
+        if self.page > 0:
+            self.page -= 1
+        await i.response.edit_message(embed=self.get_embed(), view=self)
+
+    @discord.ui.button(label="➡️", style=discord.ButtonStyle.primary)
+    async def next(self, i: discord.Interaction, _):
+        if self.page < len(self.pages) - 1:
+            self.page += 1
+        await i.response.edit_message(embed=self.get_embed(), view=self)
+
+    @discord.ui.button(label="Fermer", style=discord.ButtonStyle.danger)
+    async def close(self, i: discord.Interaction, _):
+        await i.response.edit_message(content="❌ Tutoriel fermé", embed=None, view=None)
 class MainView(discord.ui.View):
     def __init__(self, user):
         super().__init__(timeout=120)
@@ -774,6 +824,17 @@ class BSGame(commands.GroupCog, name="bs"):
     async def leaderboard(self, interaction):
         data = load()
         view = LeaderboardView(data)
+
+        await interaction.response.send_message(
+            embed=view.get_embed(),
+            view=view,
+            ephemeral=True
+        )
+
+
+    @app_commands.command(name="tuto", description="Tutoriel interactif")
+    async def tuto(self, interaction: discord.Interaction):
+        view = TutorialView(interaction.user)
 
         await interaction.response.send_message(
             embed=view.get_embed(),

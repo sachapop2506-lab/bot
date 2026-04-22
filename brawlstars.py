@@ -588,7 +588,7 @@ class ShopView(discord.ui.View):
     async def buy_box(self, i: discord.Interaction, _):
         import time
 
-        await i.response.defer(ephemeral=True)  # 🔥 IMPORTANT
+        await i.response.defer(ephemeral=True)
 
         data = load()
         p = get_player(data, str(self.user.id))
@@ -603,12 +603,15 @@ class ShopView(discord.ui.View):
 
             return await i.followup.send(
                 f"⏳ Déjà acheté aujourd'hui\nRéessaie dans {h}h {m}m",
-                ephemeral=True
+                 ephemeral=True
             )
 
-        # pas assez
+        # pas assez de coins
         if p["coins"] < SHOP["box"]["price"]:
-            return await i.followup.send("❌ Pas assez de coins", ephemeral=True)
+            return await i.followup.send(
+                "❌ Pas assez de coins",
+                ephemeral=True
+            )
 
         # achat
         p["coins"] -= SHOP["box"]["price"]
@@ -617,7 +620,11 @@ class ShopView(discord.ui.View):
 
         save(data)
 
-        await i.followup.send("📦 Box achetée (1/jour)", ephemeral=True)
+        # 🔥 IMPORTANT → message + preuve
+        await i.followup.send(
+            f"📦 Box achetée !\nTu en as maintenant : {p['boxes']}",
+            ephemeral=True
+        )
 # ---------- COG ---------- #
 
 class BSGame(commands.GroupCog, name="bs"):

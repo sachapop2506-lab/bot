@@ -138,11 +138,6 @@ class TriggerSystem(commands.Cog):
                     self.cooldown[user_id] = now
                     break
 
-        # ---------- QUOI → FEUR ---------- #
-        if "quoi" in content:
-            await message.channel.send("feur")
-            self.cooldown[user_id] = now
-
         # ---------- SPAM DETECTION ---------- #
         if user_id not in self.spam_track:
             self.spam_track[user_id] = []

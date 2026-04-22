@@ -592,7 +592,7 @@ class ShopView(discord.ui.View):
 
         data = load()
         user_id = str(i.user.id)
-        p = get_player(data, user_id)
+        p = get_player(data, str(i.user.id))
 
         now = int(time.time())
     

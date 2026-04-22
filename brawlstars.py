@@ -591,10 +591,11 @@ class ShopView(discord.ui.View):
         await i.response.defer(ephemeral=True)
 
         data = load()
-        p = get_player(data, str(self.user.id))
+        user_id = str(i.user.id)
+        p = get_player(data, user_id)
 
         now = int(time.time())
-
+    
         # cooldown
         if now - p["last_box_buy"] < 86400:
             remaining = 86400 - (now - p["last_box_buy"])
@@ -603,15 +604,12 @@ class ShopView(discord.ui.View):
 
             return await i.followup.send(
                 f"⏳ Déjà acheté aujourd'hui\nRéessaie dans {h}h {m}m",
-                 ephemeral=True
-            )
-
-        # pas assez de coins
-        if p["coins"] < SHOP["box"]["price"]:
-            return await i.followup.send(
-                "❌ Pas assez de coins",
                 ephemeral=True
             )
+
+        # pas assez
+        if p["coins"] < SHOP["box"]["price"]:
+            return await i.followup.send("❌ Pas assez de coins", ephemeral=True)
 
         # achat
         p["coins"] -= SHOP["box"]["price"]
@@ -620,9 +618,9 @@ class ShopView(discord.ui.View):
 
         save(data)
 
-        # 🔥 IMPORTANT → message + preuve
+        # DEBUG VISUEL
         await i.followup.send(
-            f"📦 Box achetée !\nTu en as maintenant : {p['boxes']}",
+            f"✅ Achat OK\n📦 Boxes: {p['boxes']}\n💰 Coins: {p['coins']}",
             ephemeral=True
         )
 # ---------- COG ---------- #

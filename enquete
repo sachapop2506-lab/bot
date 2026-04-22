@@ -1,0 +1,72 @@
+import discord
+from discord.ext import commands
+from discord import app_commands
+from collections import defaultdict
+import datetime
+import random
+
+class Enquete(commands.Cog):
+    def __init__(self, bot):
+        self.bot = bot
+        self.user_stats = defaultdict(lambda: {
+            "messages": 0,
+            "hours": [],
+            "channels": defaultdict(int)
+        })
+
+    # 📊 TRACK MESSAGES
+    @commands.Cog.listener()
+    async def on_message(self, message: discord.Message):
+        if message.author.bot:
+            return
+
+        data = self.user_stats[message.author.id]
+        data["messages"] += 1
+        data["hours"].append(message.created_at.hour)
+        data["channels"][message.channel.name] += 1
+
+    # 🔎 ENQUETE
+    @app_commands.command(name="enquete", description="Analyse un utilisateur")
+    async def enquete(self, interaction: discord.Interaction, member: discord.Member):
+        data = self.user_stats.get(member.id)
+
+        if not data or data["messages"] == 0:
+            return await interaction.response.send_message("Aucune donnée.", ephemeral=True)
+
+        # heure la plus active
+        most_active_hour = max(set(data["hours"]), key=data["hours"].count)
+
+        # salon préféré
+        fav_channel = max(data["channels"], key=data["channels"].get)
+
+        await interaction.response.send_message(
+            f"🔎 Analyse de {member.mention}\n\n"
+            f"📨 Messages : {data['messages']}\n"
+            f"🕒 Heure active : {most_active_hour}h\n"
+            f"💬 Salon préféré : #{fav_channel}\n\n"
+            f"🧠 Conclusion : comportement... suspect."
+        )
+
+    # 😈 ANALYSE FLIPPANTE
+    @app_commands.command(name="analyse", description="Analyse creepy")
+    async def analyse(self, interaction: discord.Interaction, member: discord.Member):
+        data = self.user_stats.get(member.id)
+
+        if not data or not data["hours"]:
+            return await interaction.response.send_message("Pas assez d'infos...", ephemeral=True)
+
+        hour = random.choice(data["hours"])
+        fake_day = random.randint(10, 28)
+
+        messages = [
+            f"👁️ Je sais que tu étais actif le {fake_day} avril à {hour}h...",
+            f"📡 Activité détectée à {hour}h. Ce n’est pas passé inaperçu.",
+            f"⚠️ Tu reviens souvent vers {hour}h... intéressant.",
+            f"🧠 Pattern détecté... connexion fréquente à {hour}h.",
+            f"👀 Je te surveille depuis un moment..."
+        ]
+
+        await interaction.response.send_message(random.choice(messages))
+        
+async def setup(bot):
+    await bot.add_cog(Enquete(bot))

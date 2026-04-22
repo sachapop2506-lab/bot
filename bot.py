@@ -42,7 +42,8 @@ async def main():
             "logs",
             "brawlstars",
             "fun",
-            "trigger_system"
+            "trigger_system",
+            "auto_react"
         ]
 
         for ext in extensions:

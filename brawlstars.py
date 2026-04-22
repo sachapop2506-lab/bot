@@ -547,20 +547,34 @@ class LeaderboardView(discord.ui.View):
         
 class ShopView(discord.ui.View):
     def __init__(self, user):
-        super().__init__(timeout=60)
-        self.user = user
+    super().__init__(timeout=60)
+    self.user = user
 
-        data = load()
-        p = get_player(data, str(user.id))
+    data = load()
+    p = get_player(data, str(user.id))
 
-        import time
-        now = int(time.time())
+    import time
+    now = int(time.time())
 
-        # 🔴 désactiver bouton si cooldown ou pas assez de coins
-        for item in self.children:
-            if isinstance(item, discord.ui.Button) and item.label == "Acheter Box":
+    daily = data.get("shop", {}).get("daily_brawler")
+
+    for item in self.children:
+        if isinstance(item, discord.ui.Button):
+
+            # 📦 BOX
+            if item.label == "Acheter Box":
                 if now - p.get("last_box_buy", 0) < 86400 or p["coins"] < SHOP["box"]["price"]:
                     item.disabled = True
+
+            # 🔥 BRAWLER DU JOUR
+            if item.label == "Brawler du jour":
+                if daily:
+                    rarity = BRAWLERS[daily]["rarity"]
+                    price = BRAWLER_PRICES[rarity]
+
+                    # ❌ déjà possédé OU pas assez de coins
+                    if daily in p["brawlers"] or p["coins"] < price:
+                        item.disabled = True
 
     async def interaction_check(self, i: discord.Interaction):
         if i.user.id != self.user.id:

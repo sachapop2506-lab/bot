@@ -6,6 +6,7 @@ import os
 from utils import data_path
 import random
 
+# -------- MESSAGES -------- #
 WELCOME_MESSAGES = [
     "🔥 {user} spawn dans l’arène ! Préparez-vous au chaos !",
     "🎮 {user} rejoint la bataille ! Qui va survivre ?",
@@ -27,6 +28,7 @@ LEAVE_MESSAGES = [
     "💔 {user} abandonne la partie...",
 ]
 
+# -------- FICHIER -------- #
 WELCOME_FILE = data_path("welcome_config.json")
 
 
@@ -42,30 +44,40 @@ def save_config(data: dict):
         json.dump(data, f, indent=2)
 
 
+# -------- COG -------- #
 class WelcomeCog(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
 
     # -------- CONFIG -------- #
-    @app_commands.command(name="bienvenue", description="Définir le salon des messages arrivée/départ")
-    @app_commands.describe(salon="Le salon où envoyer les messages")
+    @app_commands.command(name="config-bienvenue", description="Configurer les salons arrivée/départ")
+    @app_commands.describe(
+        salon_bienvenue="Salon pour les arrivées",
+        salon_depart="Salon pour les départs"
+    )
     @app_commands.checks.has_permissions(administrator=True)
-    async def bienvenue(self, interaction: discord.Interaction, salon: discord.TextChannel):
+    async def config_bienvenue(
+        self,
+        interaction: discord.Interaction,
+        salon_bienvenue: discord.TextChannel,
+        salon_depart: discord.TextChannel
+    ):
         config = load_config()
 
         config[str(interaction.guild_id)] = {
-            "channel_id": salon.id
+            "welcome_channel": salon_bienvenue.id,
+            "leave_channel": salon_depart.id
         }
 
         save_config(config)
 
         await interaction.response.send_message(
-            f"✅ Messages configurés dans {salon.mention}",
+            f"✅ Bienvenue → {salon_bienvenue.mention}\n❌ Départ → {salon_depart.mention}",
             ephemeral=True
         )
 
-    @bienvenue.error
-    async def bienvenue_error(self, interaction: discord.Interaction, error):
+    @config_bienvenue.error
+    async def config_bienvenue_error(self, interaction: discord.Interaction, error):
         if isinstance(error, app_commands.MissingPermissions):
             await interaction.response.send_message(
                 "❌ Permission `Administrateur` requise.",
@@ -80,7 +92,11 @@ class WelcomeCog(commands.Cog):
         if not guild_config:
             return
 
-        channel = member.guild.get_channel(guild_config["channel_id"])
+        channel_id = guild_config.get("welcome_channel")
+        if not channel_id:
+            return
+
+        channel = member.guild.get_channel(channel_id)
         if not channel:
             return
 
@@ -105,7 +121,11 @@ class WelcomeCog(commands.Cog):
         if not guild_config:
             return
 
-        channel = member.guild.get_channel(guild_config["channel_id"])
+        channel_id = guild_config.get("leave_channel")
+        if not channel_id:
+            return
+
+        channel = member.guild.get_channel(channel_id)
         if not channel:
             return
 
@@ -120,5 +140,6 @@ class WelcomeCog(commands.Cog):
         await channel.send(embed=embed)
 
 
+# -------- SETUP -------- #
 async def setup(bot: commands.Bot):
     await bot.add_cog(WelcomeCog(bot))

@@ -4,6 +4,28 @@ from discord.ext import commands
 import json
 import os
 from utils import data_path
+import random
+
+WELCOME_MESSAGES = [
+    "🔥 {user} spawn dans l’arène ! Préparez-vous au chaos !",
+    "🎮 {user} rejoint la bataille ! Qui va survivre ?",
+    "💥 Un nouveau challenger apparaît : {user} !",
+    "⚡ {user} entre dans la game… ça va faire mal !",
+    "🏆 {user} débarque pour tout casser !",
+    "🎯 {user} a rejoint la partie… objectif : domination !",
+    "🧨 Attention ! {user} vient de spawn !",
+    "👾 {user} rejoint le combat… ready ?",
+]
+
+LEAVE_MESSAGES = [
+    "💀 {user} a été éliminé de l’arène...",
+    "🥀 {user} rage quit… dommage !",
+    "⚡ {user} quitte la game… une défaite ?",
+    "👻 {user} a disparu dans le néant...",
+    "🪦 {user} n’a pas survécu au combat...",
+    "🚪 {user} a quitté le serveur… fuite stratégique ?",
+    "💔 {user} abandonne la partie...",
+]
 
 WELCOME_FILE = data_path("welcome_config.json")
 
@@ -24,23 +46,33 @@ class WelcomeCog(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
 
-    @app_commands.command(name="bienvenue", description="Définir le salon des messages de bienvenue")
-    @app_commands.describe(salon="Le salon où envoyer les messages de bienvenue")
+    # -------- CONFIG -------- #
+    @app_commands.command(name="bienvenue", description="Définir le salon des messages arrivée/départ")
+    @app_commands.describe(salon="Le salon où envoyer les messages")
     @app_commands.checks.has_permissions(administrator=True)
     async def bienvenue(self, interaction: discord.Interaction, salon: discord.TextChannel):
         config = load_config()
-        config[str(interaction.guild_id)] = {"channel_id": str(salon.id)}
+
+        config[str(interaction.guild_id)] = {
+            "channel_id": salon.id
+        }
+
         save_config(config)
 
         await interaction.response.send_message(
-            f"✅ Les messages de bienvenue seront envoyés dans {salon.mention} !", ephemeral=True
+            f"✅ Messages configurés dans {salon.mention}",
+            ephemeral=True
         )
 
     @bienvenue.error
     async def bienvenue_error(self, interaction: discord.Interaction, error):
         if isinstance(error, app_commands.MissingPermissions):
-            await interaction.response.send_message("❌ Permission `Administrateur` requise.", ephemeral=True)
+            await interaction.response.send_message(
+                "❌ Permission `Administrateur` requise.",
+                ephemeral=True
+            )
 
+    # -------- ARRIVÉE -------- #
     @commands.Cog.listener()
     async def on_member_join(self, member: discord.Member):
         config = load_config()
@@ -48,16 +80,42 @@ class WelcomeCog(commands.Cog):
         if not guild_config:
             return
 
-        channel = member.guild.get_channel(int(guild_config["channel_id"]))
+        channel = member.guild.get_channel(guild_config["channel_id"])
         if not channel:
             return
 
+        message = random.choice(WELCOME_MESSAGES).format(user=member.mention)
+
         embed = discord.Embed(
-            description=f"Bienvenue sur le Serveur de sachatouille {member.mention} profite bien ! 🎉",
-            color=discord.Color.blurple(),
+            title="🎮 NOUVEAU BRAWLER !",
+            description=message,
+            color=discord.Color.orange()
         )
+
         embed.set_thumbnail(url=member.display_avatar.url)
-        embed.set_footer(text=f"Membre #{member.guild.member_count}")
+        embed.set_footer(text=f"👥 Joueur #{member.guild.member_count}")
+
+        await channel.send(embed=embed)
+
+    # -------- DÉPART -------- #
+    @commands.Cog.listener()
+    async def on_member_remove(self, member: discord.Member):
+        config = load_config()
+        guild_config = config.get(str(member.guild.id))
+        if not guild_config:
+            return
+
+        channel = member.guild.get_channel(guild_config["channel_id"])
+        if not channel:
+            return
+
+        message = random.choice(LEAVE_MESSAGES).format(user=member.name)
+
+        embed = discord.Embed(
+            title="💀 BRAWLER HORS JEU",
+            description=message,
+            color=discord.Color.red()
+        )
 
         await channel.send(embed=embed)
 

@@ -58,12 +58,12 @@ class TicketCategorySelect(discord.ui.Select):
                 discord.SelectOption(
                     label="Aucune catégorie",
                     value="none",
-                    description="Configure avec /ticket config",
+                    description="Utilise /ticket config",
                 )
             ]
 
         super().__init__(
-            placeholder="Choisissez le type de votre demande...",
+            placeholder="Choisis une catégorie...",
             min_values=1,
             max_values=1,
             options=options,
@@ -85,7 +85,6 @@ class TicketCategorySelect(discord.ui.Select):
 
         tickets = load_tickets()
 
-        # Vérifie si déjà un ticket
         for t in tickets.values():
             if (
                 t["guild_id"] == str(interaction.guild_id)
@@ -93,7 +92,7 @@ class TicketCategorySelect(discord.ui.Select):
                 and not t["closed"]
             ):
                 await interaction.response.send_message(
-                    f"❌ Tu as déjà un ticket ouvert : <#{t['channel_id']}>",
+                    f"❌ Tu as déjà un ticket : <#{t['channel_id']}>",
                     ephemeral=True,
                 )
                 return
@@ -102,7 +101,9 @@ class TicketCategorySelect(discord.ui.Select):
 
         guild = interaction.guild
 
-        staff_role = guild.get_role(int(guild_config["staff_role_id"]))
+        staff_role_id = guild_config.get("staff_role_id")
+        staff_role = guild.get_role(int(staff_role_id)) if staff_role_id else None
+
         ticket_category = (
             guild.get_channel(int(guild_config["category_id"]))
             if guild_config.get("category_id")
@@ -116,8 +117,10 @@ class TicketCategorySelect(discord.ui.Select):
             guild.default_role: discord.PermissionOverwrite(view_channel=False),
             interaction.user: discord.PermissionOverwrite(view_channel=True, send_messages=True),
             guild.me: discord.PermissionOverwrite(view_channel=True),
-            staff_role: discord.PermissionOverwrite(view_channel=True),
         }
+
+        if staff_role:
+            overwrites[staff_role] = discord.PermissionOverwrite(view_channel=True)
 
         channel = await guild.create_text_channel(
             name=channel_name,
@@ -145,8 +148,10 @@ class TicketCategorySelect(discord.ui.Select):
             color=discord.Color.green(),
         )
 
+        staff_mention = staff_role.mention if staff_role else "Staff"
+
         await channel.send(
-            content=f"{interaction.user.mention} | {staff_role.mention}",
+            content=f"{interaction.user.mention} | {staff_mention}",
             embed=embed,
             view=TicketCloseView(),
         )
@@ -187,6 +192,7 @@ class TicketCloseView(discord.ui.View):
 
         import asyncio
         await asyncio.sleep(3)
+
         await interaction.channel.delete()
 
 
@@ -196,10 +202,11 @@ class TicketCog(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
-    ticket_group = app_commands.Group(name="ticket", description="Tickets")
+    ticket_group = app_commands.Group(name="ticket", description="Système de tickets")
 
     # SETUP
-    @ticket_group.command(name="setup")
+    @ticket_group.command(name="setup", description="Configurer les tickets")
+    @app_commands.checks.has_permissions(administrator=True)
     async def setup(
         self,
         interaction: discord.Interaction,
@@ -229,12 +236,26 @@ class TicketCog(commands.Cog):
         await interaction.response.send_message("✅ Config faite", ephemeral=True)
 
     # AJOUT CATEGORIE
-    @ticket_group.command(name="config")
+    @ticket_group.command(name="config", description="Ajouter une catégorie")
+    @app_commands.describe(
+        nom="Nom de la catégorie",
+        description="Description"
+    )
+    @app_commands.checks.has_permissions(administrator=True)
     async def config_ticket(self, interaction: discord.Interaction, nom: str, description: str):
         config = load_config()
         guild_id = str(interaction.guild_id)
 
+        if guild_id not in config:
+            await interaction.response.send_message("❌ Fais /ticket setup", ephemeral=True)
+            return
+
         categories = config[guild_id].get("categories", [])
+
+        # Anti doublon
+        if any(c["label"].lower() == nom.lower() for c in categories):
+            await interaction.response.send_message("❌ Déjà existant.", ephemeral=True)
+            return
 
         categories.append({
             "id": nom.lower().replace(" ", "_"),
@@ -247,13 +268,24 @@ class TicketCog(commands.Cog):
 
         await interaction.response.send_message("✅ Catégorie ajoutée", ephemeral=True)
 
+        # 🔥 UPDATE PANEL AUTO
+        channel_id = config[guild_id].get("panel_channel_id")
+        if channel_id:
+            channel = interaction.guild.get_channel(int(channel_id))
+
+            embed = discord.Embed(
+                title="🎫 Tickets",
+                description="Choisis une catégorie",
+            )
+
+            await channel.send(embed=embed, view=TicketPanelView(interaction.guild_id))
+
 
 # ================== LOAD ================== #
 
 async def setup(bot):
     await bot.add_cog(TicketCog(bot))
 
-    # Charger toutes les views persistantes
     config = load_config()
 
     for guild_id in config.keys():

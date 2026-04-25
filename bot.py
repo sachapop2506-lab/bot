@@ -44,7 +44,8 @@ async def main():
             "fun",
             "trigger_system",
             "fake_ban",
-            "enquete"
+            "enquete",
+            "antiraid"
         ]
 
         for ext in extensions:

@@ -168,11 +168,11 @@ class TicketCloseView(discord.ui.View):
     def __init__(self):
         super().__init__(timeout=None)
 
-   @discord.ui.button(
-    label="🔒 Fermer",
-    style=discord.ButtonStyle.red,
-    custom_id="ticket_close_button"
-)
+    @discord.ui.button(
+        label="🔒 Fermer",
+        style=discord.ButtonStyle.red,
+        custom_id="ticket_close_button"
+    )
     async def close(self, interaction: discord.Interaction, button: discord.ui.Button):
         tickets = load_tickets()
         key = str(interaction.channel_id)

@@ -168,7 +168,11 @@ class TicketCloseView(discord.ui.View):
     def __init__(self):
         super().__init__(timeout=None)
 
-    @discord.ui.button(label="🔒 Fermer", style=discord.ButtonStyle.red)
+   @discord.ui.button(
+    label="🔒 Fermer",
+    style=discord.ButtonStyle.red,
+    custom_id="ticket_close_button"
+)
     async def close(self, interaction: discord.Interaction, button: discord.ui.Button):
         tickets = load_tickets()
         key = str(interaction.channel_id)
@@ -248,4 +252,11 @@ class TicketCog(commands.Cog):
 
 async def setup(bot):
     await bot.add_cog(TicketCog(bot))
+
+    # Charger toutes les views persistantes
+    config = load_config()
+
+    for guild_id in config.keys():
+        bot.add_view(TicketPanelView(guild_id))
+
     bot.add_view(TicketCloseView())
